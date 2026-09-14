@@ -1,5 +1,13 @@
 # Fabiola Gonzalez Zamora
 
+## Week 3
+
+- This folder contains my Week 3 assingment
+  - 'FZ_Week3.Rmd': My practice and homework scripts (organized by chunks)
+  - 'bill_length_by_island.png': Density plot homework assignment
+  - Fun side note, I found the ***peRReo palette***
+    - This palette uses colors from iconic reggaeton/latin albums
+
 ## Week 2
 
 - This folder contains my Week 2 assignment
