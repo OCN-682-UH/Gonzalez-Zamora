@@ -331,7 +331,7 @@ bill_length_plot <- ggplot(
   scale_color_manual(values = pal) +
   scale_fill_manual(values = pal) +
   labs(
-    title = "Penguin Bill Lengths among Palmer Archipelaho Islands",
+    title = "Penguin Bill Lengths among Palmer Archipelago Islands",
     x = "Bill length (mm)",
     y = "Density",
     fill = "Species",
