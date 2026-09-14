@@ -1,7 +1,6 @@
 # Fabiola Gonzalez Zamora
 
 Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony Amend's lab! Among a number of side projects, I am primarily investigating whether microbial transplants can help native mints survive in their ancestral ranges!
-![Palikea](Images/Palikea.jpeg)
 
 #### 3 Fun Facts about ***Fabi***:
 
