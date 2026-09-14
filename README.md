@@ -12,11 +12,11 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 
 ## Week 3
 
-- This folder contains my Week 3 assingment
+- This folder contains my Week 3 assignment
   - 'FZ_Week3.Rmd': My practice and homework scripts (organized by chunks)
   - 'bill_length_by_island.png': Density plot homework assignment
   - Fun side note, I found the ***peRReo palette***
-    - This palette uses colors from iconic reggaeton/latin albums
+    - This palette uses colors from iconic reggaeton/Latin albums
 
 ## Week 2
 
