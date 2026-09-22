@@ -13,8 +13,10 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 ## Week 4
 This folder contains my Week 4 practice and homework
 - 'FZ_Week4.R': Practice code
-- 'FZ_Week4_HW1.R': Homework 1 scripts
-- 'FZ_Week4_HW2.R': Homework 2 scripts
+- 'FZ_Week4_HW1.R': HW 1 Scripts
+  - HW 1 Output: 'logmassfemalepenguins.png'
+- 'FZ_Week4_HW2.R': HW 2 Scripts
+  - HW 2 Output: 'chemistry_summary.csv' and 'nutrient_concentrations_site_w.png'
 
 ## Week 3
 
