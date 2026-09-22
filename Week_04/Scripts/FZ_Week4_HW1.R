@@ -65,5 +65,5 @@ penguins |>
         axis.title = element_text(size = 13),
         legend.background = element_rect(fill = "linen")) # Add rectangle for legend for improved clarity
 
-# Save the plot
+### Export Plot ### 
 ggsave(here("Week_04", "Output","logmassfemalepenguins.png"))
