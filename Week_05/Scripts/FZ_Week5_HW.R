@@ -100,3 +100,12 @@ AvgPlot
 ggsave(filename = here("Week_05", "Output", "average_conditions_by_minute.png"),
        plot = AvgPlot)
 
+#### Summary ####
+# Only two data frames used!
+  # CondData
+  # AvgData
+# Output: 
+  # averages_by_minute.csv
+  # average_conditions_by_minute.png
+# Some new items of note:
+  # Labeller function allows you to alter grid titles for facet-wrapped figures
