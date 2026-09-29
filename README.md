@@ -10,6 +10,14 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 
 3\. I think ketchup is *incredibly* overrated
 
+## Week 5
+This folder contains my Week 5 practice and homework
+- 'FZ_Week5.R': Practice code
+- 'FZ_Week5_HW.R': HW Script
+  - HW Output:
+    - 'averages_by_minute.csv'
+    - 'average_conditions_by_minute.png'
+
 ## Week 4
 This folder contains my Week 4 practice and homework
 - 'FZ_Week4.R': Practice code
