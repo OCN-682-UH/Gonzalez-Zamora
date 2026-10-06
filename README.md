@@ -21,7 +21,7 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 
 - Quarto URL: [OCN 682 - Fabiola Gonzalez Zamora - Week 6](https://01a0efaa-5cec-b777-6a6d-1349ad6e13b0.share.connect.posit.cloud/)
 - HW URL: [Nutrient Dynamics at Maunalua Bay](https://connect.posit.cloud/fabizamora/content/01a1100d-563e-ba30-5439-fab6b8803602?utm_source=rsconnect-rstudio)
-- 'FZ_Week6_HW.qmd': HW Script
+- 'FZ_Week6_HW.qmd': HW Scripts
 - 'FZ_Week6_HW.html': HW HTML
   - HW Output:
     - chemistry_summary.csv
