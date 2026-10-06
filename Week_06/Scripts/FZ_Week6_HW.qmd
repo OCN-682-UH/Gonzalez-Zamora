@@ -1,0 +1,221 @@
+---
+title: "Fabi's Week 6 Homework: Nutrient Dynamics at Maunalua Bay"
+author: "Fabiola Gonzalez Zamora"
+format:
+  html:
+    theme: yeti
+    toc: true
+    toc-location: left
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show Code"
+execute:
+  warning: false
+  message: false
+knitr:
+  opts_chunk:
+    fig.path: "../Output/"
+    fig.width: 9
+    fig.height: 6
+    dpi: 300
+---
+
+```{r Load Packages}
+#| include: FALSE
+
+library(tidyverse)
+library(dplyr)
+library(here)
+library(beepr)
+library(peRReo)
+library(kableExtra)
+library(cowsay)
+```
+
+## Introduction
+
+- Coastal groundwater can transport nutrients to nearshore ecosystems
+- This analysis examines **nutrient concentrations** at site BP in Maunalua Bay
+  - Comparison of samples during *different tides and times of day* focusing on:
+    - Phosphate,
+    - Silicate,
+    - Nitrate + Nitrite
+
+## Data Preparation
+
+Steps before analysis:
+
+1.  Remove observations with missing values.
+2.  Separate `Tide_time` into `Tide` and `Time`.
+3.  Retain observations from Site BP.
+4.  Reshape three nutrient columns into a tidy, long format.
+
+```{r Load and Clean Data}
+
+# Load csv file
+ChemData <- read.csv(here("Week_06", "Data", "chemicaldata.csv"))
+
+# Clean data
+ChemData_clean <- ChemData |>
+  drop_na() |>       
+  separate_wider_delim(cols = Tide_time, 
+                       delim = "_",  
+                       names = c("Tide", "Time"),
+                       cols_remove = FALSE) |>
+  filter(Site == "BP") |> 
+  pivot_longer(cols = c(Phosphate, Silicate, NN), 
+               names_to = "Nutrient", 
+               values_to = "Concentration")|>
+  mutate( # Replace abbreviated variable names with reader-friendly labels
+    Nutrient = recode(
+      Nutrient,
+      Phosphate = "Phosphate",
+      Silicate = "Silicate",
+      NN = "Nitrate + nitrite"
+    ),
+    # Control the order shown in tables and figures
+    Tide = factor(Tide, levels = c("Low", "High")),
+    Time = factor(Time, levels = c("Day", "Night"))
+  )
+```
+
+## Summary statistics
+
+- Summary of mean concentration, standard deviation, sample size, and standard error for every nutrient, tide, and time-of-day combination
+- Results are presented in @tbl-nutrient-summary
+
+```{r Summary Statistics}
+ChemSummary <- ChemData_clean |>
+  group_by(Nutrient, Tide, Time) |>
+  summarise(mean_concentration = mean(Concentration), 
+            var_concentration = var(Concentration),   
+            sd_concentration = sd(Concentration),    
+            sample_size = n(),
+            sd_error = sd_concentration / sqrt(sample_size),
+            .groups = "drop") 
+
+# Save the summary statistics in the Week 6 output folder
+write_csv(
+  ChemSummary,
+  here("Week_06", "Output", "chemistry_summary.csv"))
+```
+
+```{r tbl-nutrient-summary}
+#| tbl-cap: "Nutrient concentrations at Site BP by Tide and Time of Day"
+#| echo: false
+
+# Format the summary statistics as a polished HTML table
+ChemSummary |>
+  mutate(
+    mean_concentration = round(mean_concentration, 2),
+    sd_concentration = round(sd_concentration, 2),
+    sd_error = round(sd_error, 2)
+  ) |>
+  rename(
+    "Nutrient" = Nutrient,
+    "Tide" = Tide,
+    "Time of day" = Time,
+    "Mean" = mean_concentration,
+    "Variance" = var_concentration,
+    "Standard deviation" = sd_concentration,
+    "Sample size" = sample_size,
+    "Standard error" = sd_error
+  ) |>
+  kbl(
+    align = "lcccccc",
+    booktabs = TRUE
+  ) |>
+  kable_classic(
+    full_width = FALSE,
+    html_font = "Arial"
+  ) |>
+  row_spec(0, bold = TRUE, color = "white", background = "#284C46") |>
+  column_spec(1, bold = TRUE)
+```
+
+## Nutrient Patterns
+
+- @fig-nutrient-concentrations compares mean nutrient concentrations between high and low tides
+  - Bars separated by time of day, error bars represent **one standard error above and below the means**
+
+```{r fig-nutrient-concentrations}
+#| fig-cap: "Mean nutrient concentrations at Site BP by tide and time of day. Error bars represent ±1 standard error."
+#| echo: false
+#| fig-align: center
+
+# Select two contrasting, colorblind-friendly colors
+time_colors <- latin_palette("shakira", 2)
+names(time_colors) <- c("Day", "Night")
+
+# Create a publication-quality nutrient figure
+ChemPlot <- ChemSummary |>
+  ggplot(
+    aes(
+      x = Tide,
+      y = mean_concentration,
+      fill = Time)) +
+  geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7,
+    alpha = 0.85) +
+  geom_errorbar(
+    aes(
+      ymin = pmax(0, mean_concentration - sd_error),
+      ymax = mean_concentration + sd_error,
+      color = Time),
+    position = position_dodge(width = 0.8),
+    width = 0.2,
+    linewidth = 0.8,
+    show.legend = FALSE) +
+  facet_wrap(
+    ~ Nutrient,
+    scales = "free_y") +
+  scale_fill_manual(values = time_colors) +
+  scale_color_manual(values = time_colors) +
+  labs(
+    title = "Nutrient Concentrations Vary with Tide and Time of Day",
+    subtitle = "Site BP, Maunalua Bay",
+    x = "Tide",
+    y = expression("Mean concentration (" * mu * "mol/L)"),
+    fill = "Time of day",
+    caption = "Data source: Maunalua Bay chemistry dataset") +
+  theme_classic(base_size = 12) +
+  theme(
+    plot.title = element_text(
+      size = 17,
+      face = "bold",
+      color = "#244B55"),
+    plot.subtitle = element_text(
+      size = 12,
+      color = "#4A4A4A"),
+    axis.title = element_text(
+      face = "bold"),
+    strip.background = element_rect(
+      fill = "#DDECEF",
+      color = NA),
+    strip.text = element_text(
+      face = "bold",
+      color = "#244B55"),
+    legend.position = "bottom",
+    legend.title = element_text(face = "bold"),
+    panel.grid.major.y = element_line(
+      color = "grey90",
+      linewidth = 0.3),
+    plot.caption = element_text(
+      size = 8,
+      color = "grey40"))
+
+ChemPlot
+```
+
+## Interpretation
+
+The results show that nutrient concentrations are **not uniform** across sampling conditions. Silicate occurs at a much higher concentration than the other nutrients, which is why each panel in @fig-nutrient-concentrations uses its own vertical scale.
+
+Some considerations: - the bars show group means, not individual observations; - error bars show uncertainty around each mean; - this visualization describes patterns but does not test statistical significance.
+
+Overall, the table and figure provide *complementary views* of the same chemistry data: @tbl-nutrient-summary provides precise values, while @fig-nutrient-concentrations makes the major patterns easier to compare.
+
+## Data Sources
+
+The analysis uses the Maunalua Bay chemistry dataset supplied for OCN 682/MBIO 612.
