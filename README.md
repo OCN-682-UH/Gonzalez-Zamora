@@ -1,3 +1,10 @@
+---
+
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
 # Fabiola Gonzalez Zamora
 
 Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony Amend's lab! Among a number of side projects, I am primarily investigating whether microbial transplants can help native mints survive in their ancestral ranges!
@@ -11,23 +18,22 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 3\. I think ketchup is *incredibly* overrated
 
 ## Week 6
+
 - Quarto URL: [OCN 682 - Fabiola Gonzalez Zamora - Week 6](https://01a0efaa-5cec-b777-6a6d-1349ad6e13b0.share.connect.posit.cloud/)
+- HW URL: [Nutrient Dynamics at Maunalua Bay](https://connect.posit.cloud/fabizamora/content/01a1100d-563e-ba30-5439-fab6b8803602?utm_source=rsconnect-rstudio)
+- 'FZ_Week6_HW.qmd': HW Script
+- 'FZ_Week6_HW.html': HW HTML
+  - HW Output:
+    - chemistry_summary.csv
+    - fig-nutrient-concentrations-1.png
 
 ## Week 5
-This folder contains my Week 5 practice and homework
-- 'FZ_Week5.R': Practice code
-- 'FZ_Week5_HW.R': HW Script
-  - HW Output:
-    - 'averages_by_minute.csv'
-    - 'average_conditions_by_minute.png'
+
+This folder contains my Week 5 practice and homework - 'FZ_Week5.R': Practice code - 'FZ_Week5_HW.R': HW Script - HW Output: - 'averages_by_minute.csv' - 'average_conditions_by_minute.png'
 
 ## Week 4
-This folder contains my Week 4 practice and homework
-- 'FZ_Week4.R': Practice code
-- 'FZ_Week4_HW1.R': HW 1 Scripts
-  - HW 1 Output: 'logmassfemalepenguins.png'
-- 'FZ_Week4_HW2.R': HW 2 Scripts
-  - HW 2 Output: 'chemistry_summary.csv' and 'nutrient_concentrations_site_w.png'
+
+This folder contains my Week 4 practice and homework - 'FZ_Week4.R': Practice code - 'FZ_Week4_HW1.R': HW 1 Scripts - HW 1 Output: 'logmassfemalepenguins.png' - 'FZ_Week4_HW2.R': HW 2 Scripts - HW 2 Output: 'chemistry_summary.csv' and 'nutrient_concentrations_site_w.png'
 
 ## Week 3
 
