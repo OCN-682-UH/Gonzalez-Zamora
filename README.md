@@ -1,4 +1,3 @@
-
 # Fabiola Gonzalez Zamora
 
 Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony Amend's lab! Among a number of side projects, I am primarily investigating whether microbial transplants can help native mints survive in their ancestral ranges!
@@ -10,6 +9,14 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 2\. I am a **huge** Barca fan
 
 3\. I think ketchup is *incredibly* overrated
+
+## Week 7
+
+- Homework URL: [OCN 682 - Fabiola Gonzalez Zamora - Week 7](https://connect.posit.cloud/fabizamora/content/01a13708-685e-08e4-b3e7-0675dbc1f80a)
+- `FZ_Week7_HW.qmd`: HW Quarto Scripts
+- `FZ_Week7_HW.html`: HW HTML
+  - HW Output:
+    - `fig-meteorite-map-1.png`
 
 ## Week 6
 
@@ -42,3 +49,5 @@ This folder contains my Week 4 practice and homework - 'FZ_Week4.R': Practice co
 - This folder contains my Week 2 assignment
   - 'Introscript.R': My introductory R script
   - 'weightdata.csv': Data used by the script
+  
+
