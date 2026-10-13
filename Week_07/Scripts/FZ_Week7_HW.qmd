@@ -1,0 +1,182 @@
+---
+title: "Fabi's Week 7 Homework"
+author: "Fabiola Gonzalez Zamora"
+format:
+  html:
+    theme: yeti
+    toc: true
+    toc-location: left
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show Code"
+execute:
+  warning: false
+  message: false
+knitr:
+  opts_chunk:
+    fig.path: "../Output/"
+    fig.width: 9
+    fig.height: 6
+    dpi: 300
+---
+
+```{r Load Packages and Data, include = FALSE}
+
+# Load packages
+library(here)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(here)
+library(beepr)
+library(peRReo)
+library(kableExtra)
+library(palmerpenguins)
+library(maps)
+library(mapdata)
+library(mapproj)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggdogs)
+library(remotes)
+library(scales)
+library(ThemePark)
+
+
+# Load Meteorite Date
+meteorites <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2019/2019-06-11/meteorites.csv")
+
+```
+
+### Introduction
+
+- Meteorites provide physical evidence of material arriving on Earth from *space*
+
+![](../Data/hothmeteorites.png)
+
+- This analysis maps:
+  - Geographic location
+  - Classification as `Fell` or `Found`
+  - Mass
+
+### Data Preparation
+
+- Meteorite data come from the Meteoritical Society through NASA, distributed by TidyTuesday project
+
+```{r Prepare Data}
+# Clean Dataset
+meteorites_clean <- meteorites |>
+  drop_na(lat, long, mass, fall, year)|>
+  filter(
+    between(lat, -90, 90),
+    between(long, -180, 180),
+    mass > 0,
+    year >= 1900,
+    !(lat == 0 & long == 0)) |>
+  mutate(
+    fall = factor(
+      fall,
+      levels = c("Found", "Fell")))
+
+# Obtain country polygon coordinates
+world <- map_data("world")
+```
+
+### Global Meteorite Distribution
+
+```{r Global Meteorite Distribution}
+#| label: fig-meteorite-map
+#| fig-cap: "Recorded meteorite locations since 1900"
+#| fig-alt: "World map displaying meteorite locations as colored circles. Larger circles indicate greater meteorite mass"
+#| out-width: "90%"
+
+# Make Palette
+meteorite_colors <- c(
+  "Found" = "#277DA1",
+  "Fell" = "#F94144")
+
+# Create the Map
+meteorite_map <- ggplot() +
+  geom_polygon( # Draw country polygons from world
+    data = world,
+    aes(
+      x = long,
+      y = lat,
+      group = group),
+    fill = "#E8E5DF",
+    color = "white",
+    linewidth = 0.15) +
+  geom_point(
+    data = meteorites_clean, # Add meteorite locations
+    aes(
+      x = long,
+      y = lat,
+      color = fall,
+      size = mass),
+    alpha = 0.55) +
+  coord_quickmap( # Preserve geographic proportions
+    xlim = c(-180, 180),
+    ylim = c(-60, 85),
+    expand = FALSE) +
+  scale_color_manual(
+    values = meteorite_colors) + # Apply palette and logarithmic mass scale
+  scale_size_continuous(
+    trans = "log10",
+    range = c(0.05, 2),
+    labels = label_number(
+      scale_cut = cut_short_scale())) +
+  labs(
+    title = "Meteorites Recorded Across Earth since 1900",
+    subtitle = "Observations from a Galaxy Not So Far Away",
+    color = "Record type:",
+    size = "Mass (g)",
+    caption = paste(
+      "Source: Meteoritical Society and NASA;",
+      "data distributed by TidyTuesday")) +
+  theme_starwars(starwars_font = TRUE) + # STAR WARS THEME LFG
+theme(
+  axis.title = element_blank(),
+  axis.text = element_blank(),
+  axis.ticks = element_blank(),
+  panel.background = element_rect(
+    fill = "grey29",
+    color = NA,
+  ),
+  plot.title = element_text(
+    size = 20,
+    face = "bold",
+    color = "#F1E81F"
+  ),
+  plot.subtitle = element_text(
+    size = 12,
+    color = "white"
+  ),
+  plot.caption = element_text(
+    size = 8,
+    color = "grey75"
+  ),
+  legend.position = "bottom",
+  legend.title = element_text(
+    face = "bold",
+    color = "#F1E81F"
+  ),
+  legend.text = element_text(color = "white")
+)
+
+meteorite_map
+```
+
+- @fig-meteorite-map shows the geographic distribution of recorded meteorites
+  - Larger circles represent heavier meteorites.
+  - Point size use a logarithmic scale because meteorite masses vary by several orders of magnitude.
+
+### Interpretation
+
+1.  Recordings are found across the globe
+2.  `Found` greatly outnumber observed `Fell` meteors
+3.  Concentrated in particular regions, could be artifact of sampling (and reduced ocean access)
+
+#### Another Fabi Fun Fact
+
+- If not abundantly clear from this assignment, I am a ***BIG*** Star Wars fan ![](../Data/anakin.png)
