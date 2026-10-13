@@ -30,22 +30,22 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 
 ## Week 5
 
-- This folder contains my Week 5 practice and homework 
-- `FZ_Week5.R`: Practice code 
-- `FZ_Week5_HW.R`: HW Script 
-  - HW Output: 
-    - `averages_by_minute.csv` 
+- This folder contains my Week 5 practice and homework
+- `FZ_Week5.R`: Practice code
+- `FZ_Week5_HW.R`: HW Script
+  - HW Output:
+    - `averages_by_minute.csv`
     - `average_conditions_by_minute.png`
 
 ## Week 4
 
-- This folder contains my Week 4 practice and homework 
-  - 'FZ_Week4.R': Practice code 
-  - 'FZ_Week4_HW1.R': HW 1 Scripts 
-  - HW 1 Output: 
-    - `logmassfemalepenguins.png` 
-    - `FZ_Week4_HW2.R`: HW 2 Scripts 
-  - HW 2 Output: 
+- This folder contains my Week 4 practice and homework
+  - 'FZ_Week4.R': Practice code
+  - 'FZ_Week4_HW1.R': HW 1 Scripts
+  - HW 1 Output:
+    - `logmassfemalepenguins.png`
+    - `FZ_Week4_HW2.R`: HW 2 Scripts
+  - HW 2 Output:
     - `chemistry_summary.csv` and `nutrient_concentrations_site_w.png`
 
 ## Week 3
@@ -61,5 +61,20 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 - This folder contains my Week 2 assignment
   - 'Introscript.R': My introductory R script
   - 'weightdata.csv': Data used by the script
-  
 
+#### Git Upload and Pull Hints
+
+- To *upload*:
+
+1.  Make sure you are in the `Gonzalez-Zamora` repository
+2.  git status
+3.  git pull --rebase origin main
+4.  git add `[whatever assignment you have]`
+5.  git commit -m "some descriptive message"
+6.  git push origin main
+
+- To *pull* from class repository:
+
+1.  Make sure you are in the `Fall_2026` repository
+2.  git remote -v
+3.  git pull --rebase origin main
