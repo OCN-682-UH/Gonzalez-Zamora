@@ -1,0 +1,688 @@
+---
+title: "Fabi's Good Plot vs. Bad Plot"
+author: "Fabiola Gonzalez Zamora"
+format:
+  html:
+    theme: yeti
+    toc: true
+    toc-location: left
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show Code"
+execute:
+  warning: false
+  message: false
+knitr:
+  opts_chunk:
+    fig.path: "../Output/"
+    fig.width: 9
+    fig.height: 6
+    dpi: 300
+---
+
+```{r Load Packages, echo=FALSE}
+# Load packages
+library(here)
+library(ggplot2)
+library(ggpattern)
+library(magick)
+library(plotly)
+library(tidyverse)
+library(scales)
+library(ggrepel)
+library(dplyr)
+library(here)
+library(peRReo)
+library(kableExtra)
+library(emojifont)
+```
+
+## Collegiate Sports
+
+- The data comes from [Equity in Athletics Data Analysis](https://ope.ed.gov/athletics/#/datafile/list), via TidyTuesday
+
+```{r Load Data}
+
+# Download File
+sports_raw <- read_csv(
+  here("GoodPlotBadPlot", 
+       "Data", 
+       "sports.csv"))
+
+# head(sports_raw)
+
+# Same ~2,075 institutions every year, but 2019 carries 3.6x the rows.
+sports_raw |>
+  group_by(year) |>
+  summarise(
+    rows            = n(),
+    institutions    = n_distinct(unitid),
+    pct_no_athletes = percent(mean(sum_partic_men + sum_partic_women == 0)),
+    .groups = "drop"
+  ) |>
+  kable(caption = "2019 is padded with rows for sports that aren't offered") |>
+  kable_classic()
+  
+# Clean Data
+sports_clean <- sports_raw |>
+  filter(sum_partic_men + sum_partic_women > 0) |>
+  mutate(
+    year_label = paste0(year, "-", str_sub(year + 1, 3, 4)),
+    .after = year)
+nrow(sports_raw) - nrow(sports_clean)
+
+# head(sports_clean)
+```
+
+```{r Creating Data Frame of DI-FBS Institutions in 2019}
+# Using the cleaned data, filter for year of interest
+fbs_2019 <- sports_clean |>
+  filter(year == 2019, classification_name == "NCAA Division I-FBS")
+
+per_athlete <- fbs_2019 |>
+  group_by(sports) |>
+  summarise(
+    across(
+      c(sum_partic_men, sum_partic_women, exp_men, exp_women),
+      function(x) sum(x, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  ) |>
+  # Only a sport with a real program of both sexes supports a comparison.
+  # Also guards the division: a single-sex sport would give 0 / 0 = NaN.
+  
+  filter(sum_partic_men >= 100, sum_partic_women >= 100) |>
+  transmute(
+    sport   = sports,
+    men     = exp_men   / sum_partic_men,
+    women   = exp_women / sum_partic_women,
+    n_men   = sum_partic_men,
+    n_women = sum_partic_women
+  )
+
+per_athlete |>
+  arrange(desc(men / women)) |>
+  mutate(across(c(men, women), label_dollar(accuracy = 1))) |>
+  kable(caption = "Expenditure per participant, NCAA Division I, 2019-20",
+        col.names = c(
+      "Sport",
+      "Expenditure per Male",
+      "Expenditure per Female",
+      "Male Participants",
+      "Female Participants")) |>
+  kable_classic()
+```
+
+### Analysis I: Gender Spending Gap
+```{r Dissecting Gender Spending Gap}
+# Pool every FBS institution, then divide total dollar by total participants
+# Taking a mean of per-school ratios instead would weight a 300-athlete
+# programme the same as a 900-athlete one.
+
+scope_ratio <- function(data, exclude = character()) {
+  data |>
+    filter(!sports %in% exclude) |> # This filter allows me to make a column later on to exclude certain sports for analyses
+    summarise(
+      across(c(sum_partic_men, sum_partic_women, exp_men, exp_women),
+             function(x) sum(x, na.rm = TRUE))
+    ) |>
+    transmute(
+      men   = exp_men   / sum_partic_men,
+      women = exp_women / sum_partic_women,
+      ratio = men / women
+    )
+}
+
+# Now let's make the column of sports for later exclusion analyses
+decomp <- bind_rows(
+  scope_ratio(fbs_2019)                              |> mutate(scope = "All sports"),
+  scope_ratio(fbs_2019, "Football")                  |> mutate(scope = "Excluding football"),
+  scope_ratio(fbs_2019, c("Football", "Basketball")) |> mutate(scope = "Excluding football\nand basketball")
+) |>
+  mutate(scope = fct_rev(fct_inorder(scope))) # This function allows modification of the scope column, in order
+
+# Now we want wide to long format for the plot
+
+decomp_long <- decomp |>
+  pivot_longer(c(men, women), names_to = "sex", values_to = "per_athlete") |>
+  mutate(icon = if_else(sex == "men",
+                        fontawesome("fa-male"),
+                        fontawesome("fa-female")))
+
+# Make the plot
+
+twosport_plot <- ggplot(decomp_long, aes(x = per_athlete, y = scope)) +
+  geom_segment(
+    data = decomp, inherit.aes = FALSE,
+    aes(x = men, xend = women, y = scope, yend = scope),
+    colour = "grey78", linewidth = 1.3
+  ) +
+  geom_text(
+    aes(label = icon, 
+        color = sex),
+    family = "fontawesome-webfont",
+    size = 6) +
+  geom_text(
+    data = decomp, inherit.aes = FALSE,
+    aes(x = pmax(men, women), y = scope,
+        label = paste0(number(ratio, accuracy = 0.01), "x")),
+    hjust = -0.4, size = 3.3, colour = "grey30", fontface = "bold"
+  ) +
+  geom_text(
+    data = filter(decomp_long, scope == "All sports"),
+    aes(label = str_to_title(sex), color = sex),
+    nudge_y = 0.33, size = 3.2, fontface = "bold", show.legend = FALSE
+  ) +
+  scale_color_manual(values = c(men = "#99CCD9", women = "#EC1A7F"),
+                               guide = "none") +
+  scale_x_continuous(labels = label_dollar(scale = 1e-3, suffix = "k", accuracy = 1),
+                     limits = c(0, 1.4e5), expand = c(0, 0)) +
+  scale_y_discrete(expand = expansion(add = c(0.6, 0.9))) +
+  labs(
+    title    = "Two Sports Account for Gender Spending Gap in D-I Football Schools",
+    subtitle = "Operating expenditure per participant, NCAA Division I-FBS, 2019-20. Ratio is men's spending divided by women's.",
+    x = "Expenditure per participant", y = NULL,
+    caption  = "Data: EADA, US Dept of Education, via TidyTuesday 2022-03-29. 127 institutions."
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.minor    = element_blank(),
+    panel.grid.major.y  = element_blank(),
+    plot.title.position = "plot",
+    plot.caption  = element_text(hjust = 0, colour = "grey45", size = 7.5),
+    plot.subtitle = element_text(colour = "grey35", size = 9.5)
+  )
+
+twosport_plot
+```
+
+### Analysis II: Title IX
+
+```{r Data Frame with Enrollment and Participation}
+# Title IX Data Frame
+
+title_ix <- sports_clean |>
+  filter(year == 2019) |>
+  group_by(unitid, classification_name) |>
+  summarise(
+    athletes_men   = sum(sum_partic_men,   na.rm = TRUE),
+    athletes_women = sum(sum_partic_women, na.rm = TRUE),
+    students_men   = first(ef_male_count),
+    students_women = first(ef_female_count),
+    .groups = "drop"
+  ) |>
+  group_by(classification_name) |>
+  summarise(
+    schools        = n(),
+    pct_students_w = sum(students_women) / sum(students_men + students_women),
+    pct_athletes_w = sum(athletes_women) / sum(athletes_men + athletes_women),
+    .groups = "drop"
+  ) |>
+  filter(schools >= 20) |>
+  mutate(
+    gap = pct_athletes_w - pct_students_w,
+    classification_name = fct_reorder(classification_name, gap)
+  ) 
+
+# Make the plot
+
+title_ix_plot <- ggplot(title_ix, aes(y = classification_name)) +
+  geom_vline(xintercept = 0.5, linetype = "dashed", colour = "grey65", linewidth = 0.4) +
+  geom_segment(
+    aes(x = pct_students_w, xend = pct_athletes_w,
+        y = classification_name, yend = classification_name),
+    colour = "grey72", linewidth = 0.9,
+    arrow = arrow(length = unit(0.028, "npc"), type = "closed")
+  ) +
+  geom_point(aes(x = pct_students_w), color = "#ff0069", size = 2.5) +
+  geom_point(aes(x = pct_athletes_w), color = "#18B587", size = 2.5) +
+  geom_text(data = slice_max(title_ix, gap, n = 1),
+            aes(x = pct_students_w, 
+                label = "Student Share",
+                hjust = -0.05),
+            nudge_y = 0.5, 
+            size = 2.9, 
+            color = "#ff0069", 
+            fontface = "bold") +
+  geom_text(data = slice_max(title_ix, gap, n = 1),
+            aes(x = pct_athletes_w, 
+                label = "Athlete Share",
+                hjust = 2.2),
+            nudge_y = 0.5, 
+            size = 2.9, 
+            color = "#18B587", 
+            fontface = "bold") +
+  scale_x_continuous(labels = label_percent(accuracy = 1),
+                     limits = c(0.32, 0.63), breaks = seq(0.35, 0.60, 0.05)) +
+  scale_y_discrete(expand = expansion(add = c(0.6, 1.1))) +
+  labs(
+    title    = "Women are the majority of students, and a minority of athletes, in every division",
+    subtitle = "Arrow Runs from Women's Share of Enrollment to Share of Athletes, 2019-20",
+    x = "Women Share of Total", y = NULL,
+    caption  = "Data: EADA, US Dept of Education, via TidyTuesday"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.minor    = element_blank(),
+    panel.grid.major.y  = element_blank(),
+    plot.title.position = "plot",
+    plot.caption  = element_text(hjust = 0, colour = "grey45", size = 7.5),
+    plot.subtitle = element_text(colour = "grey35", size = 9.5)
+  )
+
+title_ix_plot
+```
+
+### Analysis III: Division Cascade
+
+```{r Revenues per Division Classification}
+# Make data frame for different institutions' division classifications
+
+by_class <- sports_clean |>
+  filter(year == 2019) |>
+  group_by(classification_name) |>
+  summarise(
+    schools  = n_distinct(unitid),
+    athletes = sum(sum_partic_men + sum_partic_women, na.rm = TRUE),
+    expense  = sum(total_exp_menwomen, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    per_athlete = expense / athletes,
+    classification_name = fct_reorder(classification_name, per_athlete)
+  )
+
+# Classification Plot
+
+class_plot <- ggplot(by_class, aes(x = per_athlete, y = classification_name)) +
+  geom_segment(aes(x = 2000, 
+                   xend = per_athlete,
+                   y = classification_name, 
+                   yend = classification_name),
+               color = "grey82", 
+               linewidth = 0.5) +
+  geom_point(aes(size = athletes), 
+             color = "#99CCD9", 
+             alpha = 0.85) +
+  geom_text(aes(label = label_dollar(accuracy = 1)(per_athlete)),
+            hjust = -0.35, size = 2.7, color = "grey35") +
+  scale_x_log10(
+    breaks = c(2500, 5000, 10000, 25000, 50000, 100000),
+    labels = label_dollar(scale = 1e-3, suffix = "k", accuracy = 1),
+    limits = c(2000, 2.4e5), expand = c(0, 0)
+  ) +
+  scale_size_area(max_size = 7, labels = label_comma(), name = "Athletes") +
+  labs(
+    title    = "A Division I-FBS athlete costs 33 times what a junior-college athlete costs",
+    subtitle = "Operating expenditure per athlete by classification, 2019-20. Point area is the number of athletes",
+    x = "Expenditure per participant", y = NULL,
+    caption  = "Data: EADA, US Dept of Education, via TidyTuesday"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.minor     = element_blank(),
+    panel.grid.major.y   = element_line(
+      color = "grey94",
+      linewidth = 0.3),
+    legend.position      = "bottom",
+    legend.justification = "left",
+    plot.title.position  = "plot",
+    plot.caption  = element_text(
+      hjust = 0, 
+      color = "grey45", 
+      size = 7.5),
+    plot.subtitle = element_text(color = "grey35", size = 9.5)
+  )
+
+class_plot
+
+
+```
+### Analysis IV: UH Manoa Specific
+```{r Load Rainbow Warriors}
+
+UH <- 141574 # University of Hawai'i at Manoa
+
+UH <- sports_clean |>
+  filter(unitid == UH)
+  
+UH |> distinct(year,
+           classification_name,
+           ef_male_count,
+           ef_female_count)
+
+# Sailing is a COED program, should filter for analyses
+UH |> filter(sports == "Sailing") |>
+  select(year,
+         sports,
+         partic_men, 
+         partic_coed_men,
+         partic_coed_women,
+         sum_partic_men,
+         sum_partic_women,
+         exp_men,
+         exp_women)
+
+```
+```{r Benchmark against other D1 FBS}
+
+benchmark <- bind_rows(
+  sports_clean |> filter(year == 2019, 
+                         unitid == 141574) |>
+    mutate(group = "UH Manoa"),
+  sports_clean |> filter(year == 2019, 
+                         classification_name == "NCAA Division 1-FBS") |>
+    mutate(group = 
+             "All Division I-FBS")
+) |>
+  group_by(group, unitid) |>
+  summarise(
+    athletes_m = sum(sum_partic_men,   na.rm = TRUE),
+    athletes_w = sum(sum_partic_women, na.rm = TRUE),
+    exp_m      = sum(exp_men,   na.rm = TRUE),
+    exp_w      = sum(exp_women, na.rm = TRUE),
+    students_m = first(ef_male_count),     # institution-level, repeated per row
+    students_w = first(ef_female_count),
+    .groups = "drop_last"
+  ) |>
+  summarise(
+    pct_students_w = sum(students_w) / sum(students_m + students_w),
+    pct_athletes_w = sum(athletes_w) / sum(athletes_m + athletes_w),
+    per_man        = sum(exp_m) / sum(athletes_m),
+    per_woman      = sum(exp_w) / sum(athletes_w),
+    .groups = "drop"
+  ) |>
+  mutate(spend_ratio = per_man / per_woman)
+
+benchmark
+```
+
+```{r UH Sport Gap}
+UH_sport <- UH |>
+  filter(year == 2019, sports != "Sailing") |>   # coed, see above
+  transmute(
+    sport     = sports,
+    men       = if_else(sum_partic_men   > 0, exp_men   / sum_partic_men,   NA_real_),
+    women     = if_else(sum_partic_women > 0, exp_women / sum_partic_women, NA_real_),
+    n_men     = sum_partic_men,
+    n_women   = sum_partic_women,
+    total_exp = coalesce(exp_men, 0) + coalesce(exp_women, 0)
+  ) |>
+  mutate(
+    sport   = fct_reorder(sport, total_exp),
+    n_label = paste0(n_men, " / ", n_women)
+  )
+
+# Sports with both programs get a connector; single-sex sports get one point.
+UH_pairs <- UH_sport |> filter(!is.na(men), !is.na(women))
+
+UH_long <- UH_sport |>
+  pivot_longer(c(men, women), names_to = "sex", values_to = "per_athlete") |>
+  filter(!is.na(per_athlete)) |>
+  mutate(icon = if_else(sex == "men",
+                        fontawesome("fa-male"),
+                        fontawesome("fa-female")))
+
+UH_sports_plot <- ggplot(UH_long, aes(x = per_athlete, y = sport)) +
+  geom_segment(
+    data = UH_pairs, inherit.aes = FALSE,
+    aes(x = men, xend = women, y = sport, yend = sport),
+    color = "grey78", linewidth = 1.1
+  ) +
+  geom_text(
+    aes(label = icon, 
+        color = sex),
+    family = "fontawesome-webfont",
+    size = 6) +
+  geom_point(aes(color = sex), size = 0.5) +
+  geom_text(
+    data = UH_sport, inherit.aes = FALSE,
+    aes(x = 2.6e5, y = sport, label = n_label),
+    hjust = 1, size = 2.6, color = "grey45"
+  ) +
+  annotate("text", x = 2.6e5, y = 12.7, hjust = 1, size = 2.6,
+           color = "grey35", fontface = "italic",
+           label = "athletes (m / w)") +
+  scale_color_manual(values = c(men = "#99CCD9", women = "#EC1A7F"), guide = "none") +
+  scale_x_continuous(
+    labels = label_dollar(scale = 1e-3, suffix = "k", accuracy = 1),
+    limits = c(0, 2.7e5), expand = c(0, 0)
+  ) +
+  scale_y_discrete(expand = expansion(add = c(0.6, 1.3))) +
+  labs(
+    title    = "At UH Manoa, women are 56% of athletes and receive 35% of the athletics budget",
+    subtitle = "Operating expenditure per participant by sport, 2019-20",
+    x = "Expenditure per participant", y = NULL,
+    caption = paste(
+      "Data: Equity in Athletics Data Analysis (EADA), US Dept of Education, via TidyTuesday 2022-03-29.",
+      "Sailing is excluded: it is a coed programme that EADA's gendered columns cannot represent.",
+      sep = "\n"
+    )
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.minor    = element_blank(),
+    panel.grid.major.y  = element_blank(),
+    plot.title.position = "plot",
+    plot.caption  = element_text(hjust = 0, color = "grey45", size = 7,
+                                 lineheight = 1.25),
+    plot.subtitle = element_text(colour = "grey35", size = 9.5)
+  )
+
+UH_sports_plot
+```
+```{r UH 5-year Trend}
+UH_trend <- UH |>
+  group_by(year) |>
+  summarise(
+    per_man   = sum(exp_men,   na.rm = TRUE) / sum(sum_partic_men,   na.rm = TRUE),
+    per_woman = sum(exp_women, na.rm = TRUE) / sum(sum_partic_women, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(ratio = per_man / per_woman)
+
+UH_trend_long <- UH_trend |>
+  pivot_longer(c(per_man, per_woman), names_to = "sex", values_to = "per_athlete")
+
+ggplot(UH_trend_long, aes(x = year, y = per_athlete, color = sex)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2.4) +
+  geom_text(
+    data = filter(UH_trend_long, year == 2019),
+    aes(label = if_else(sex == "per_man", "Men", "Women")),
+    hjust = -0.3, size = 3.2, fontface = "bold", show.legend = FALSE
+  ) +
+  scale_color_manual(values = c(per_man = "#99CCD9", per_woman = "#EC1A7F"),
+                      guide = "none") +
+  scale_x_continuous(breaks = 2015:2019, labels = paste0(2015:2019, "-", 16:20),
+                     expand = expansion(mult = c(0.04, 0.14))) +
+  scale_y_continuous(labels = label_dollar(scale = 1e-3, suffix = "k", accuracy = 1),
+                     limits = c(0, 1e5)) +
+  labs(
+    title    = "Five years, no convergence",
+    subtitle = "UH Manoa operating expenditure per participant. The men-to-women ratio moved from 2.24 to 2.36.",
+    x = NULL, y = "Expenditure per participant",
+    caption = "Data: EADA, US Dept of Education, via TidyTuesday"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.minor    = element_blank(),
+    panel.grid.major.x  = element_blank(),
+    plot.title.position = "plot",
+    plot.caption  = element_text(hjust = 0, colour = "grey45", size = 7.5),
+    plot.subtitle = element_text(colour = "grey35", size = 9.5)
+  )
+
+```
+```{r UH vs. FBS 5-Year Trend}
+#| warning: FALSE
+
+trend_of <- function(data, label) {
+  data |>
+    group_by(year) |>
+    summarise(
+      men   = sum(exp_men,   na.rm = TRUE) / sum(sum_partic_men,   na.rm = TRUE),
+      women = sum(exp_women, na.rm = TRUE) / sum(sum_partic_women, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    mutate(group = label)
+}
+
+trend <- bind_rows(
+  trend_of(filter(sports_clean, classification_name == "NCAA Division I-FBS"),
+           "All Division I-FBS"),
+  trend_of(filter(sports_clean, unitid == 141574), "UH Manoa")
+) |>
+  pivot_longer(c(men, women), names_to = "sex", values_to = "per_athlete")
+
+trend <- trend |>
+  mutate(series = 
+           paste(group, sex, sep = " / "))
+
+trend <- trend |>
+  group_by(group, sex) |>
+  arrange(year, .by_group = TRUE) |>
+  mutate(
+    base = per_athlete[year == 2015],
+    pct_change = per_athlete / base - 1,
+    tip = paste0(
+      group, " \u2014 ", sex, "<br>",
+      year, "-", str_sub(year + 1, 3, 4), "<br>",
+      label_dollar(accuracy = 1)(per_athlete), " per participant<br>",
+      "Since 2015-16: ", percent(pct_change, accuracy = 0.1))) |>
+  ungroup()
+
+# Make Good Plot
+UHvsFBS_plot <- ggplot(
+  trend, 
+  aes(x = year, 
+      y = per_athlete,
+      color = series, 
+      linetype = group,
+      group = interaction(group, sex))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2.1) +
+  geom_text(
+    data = filter(trend, year == 2019) |>
+      mutate(x_lab = year + 0.3),
+    aes(x = x_lab,
+        label = paste0(if_else(group == "UH Manoa", "UH ", "All FBS "), sex)),
+    hjust = 0, vjust = -0.1, size = 3, fontface = "bold", show.legend = FALSE
+  ) +
+  geom_text(
+    data = filter(trend, year == 2019) |> mutate(x_lab = year + 0.3),
+    aes(x = x_lab,
+        label = paste0(if_else(pct_change >= 0, "+", ""),
+                       percent(pct_change, accuracy = 0.1))),
+    hjust = 0, vjust = 1.3, size = 2.5, show.legend = FALSE) +
+  # Two channels, one variable each: color carries sex, line style carries group.
+  scale_color_manual(
+    values = c(
+      "UH Manoa / men" = "#024731", 
+      "UH Manoa / women" = "#6C41D3",
+      "All Division I-FBS / men" = "#024731", alpha = 0.7,
+      "All Division I-FBS / women" = "#6C41D3", alpha = 0.7),
+                      guide = "none") +
+  scale_linetype_manual(values = c("UH Manoa" = "solid",
+                                   "All Division I-FBS" = "dashed"),
+                        guide = "none") +
+  scale_x_continuous(breaks = 2015:2019,
+                     labels = paste0(2015:2019, "-", 16:20),
+                     expand = expansion(mult = c(0.04, 0.26))) +
+  scale_y_continuous(labels = label_dollar(scale = 1e-3, suffix = "k", accuracy = 1),
+                     limits = c(0, 1.3e5),
+                     breaks = seq(0, 125000, 25000)) +
+  labs(
+    title    = "Division I-FBS vs. UH Manoa Spending per Athlete, 5-Year Trend",
+    subtitle = "Normalized operating expenditure rose 22% for all other D-I schools, Rainbow Warriors did not",
+    x = NULL, y = "Expenditure per participant",
+    caption = paste(
+      "Data: Equity in Athletics Data Analysis (EADA), US Dept of Education, via TidyTuesday",
+      "Restricting the comparison to the 125 institutions classified as FBS in all five years changes every figure by under 1%, so the trend is not an artefact of schools changing division",
+      sep = "\n"
+    )
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.minor    = element_blank(),
+    panel.grid.major.x  = element_blank(),
+    plot.title.position = "plot",
+    plot.caption  = element_text(hjust = 0, color = "grey45", size = 7,
+                                 lineheight = 1.25),
+    plot.subtitle = element_text(color = "grey35", size = 9.5)
+  )
+
+UHvsFBS_plot
+
+```
+
+```{r Bad Plot}
+#| label: bad-plot
+#| warning: false
+#| fig-width: 7.5
+#| fig-height: 5
+
+bad_dat <- bind_rows(
+  sports_clean |> filter(unitid == 141574) |>
+    mutate(group = "UH Manoa"),
+  sports_clean |> filter(classification_name == "NCAA Division I-FBS") |>
+    mutate(group = "All Division I-FBS")) |>
+  group_by(group, year) |>
+  summarise(exp_men = sum(exp_men, na.rm = TRUE),
+            exp_women = sum(exp_women, na.rm = TRUE),
+            .groups = "drop") |>
+  pivot_longer(c(exp_men,
+                 exp_women),
+               names_to = "sex",
+               values_to = "total_exp")
+
+bad_plot <- ggplot(bad_dat,
+                   aes(x = factor(year),
+                       y = total_exp,
+                       fill = sex)) +
+geom_col(aes(y = total_exp),
+           position = position_dodge(width = 0.9),
+           width = 0.85, fill = NA, alpha = 0.5) +
+  geom_col_pattern(
+    aes(pattern_filename = sex),
+    pattern        = "image",
+    pattern_type   = "tile",
+    pattern_scale  = 0.05, 
+    fill           = "white",
+    colour         = "yellow",
+    linewidth      = 0.6,
+    position       = position_dodge(width = 0.9),
+    width          = 0.75
+  ) +
+  scale_pattern_filename_manual(
+    values = c(
+      exp_men   = here("GoodPlotBadPlot", "dolla.png"),
+      exp_women = here("GoodPlotBadPlot", "pinkdolla.png"))) +
+  facet_wrap(~ group) +
+  scale_fill_manual(values = c(exp_men = "#1E90FF", exp_women = "#FF69B4")) +
+  scale_y_continuous(
+    labels   = label_scientific(),
+    sec.axis = sec_axis(~ . / 1e6, name = "Millions")
+  ) +
+  labs(
+    title    = "UH Manoa Spends Nothing on Athletics",
+    subtitle = "Expenditure by year",
+    x = "Year", y = "Expenditure",
+    caption  = "source: trust me, bro"                           # CRIME: no source, no n
+  ) +
+  theme_grey(base_family = "Comic Sans MS") +
+  theme(
+    panel.ontop      = TRUE,
+    panel.grid.major = element_line(colour = "black", linewidth = 0.1),
+    panel.background = element_rect(fill = NA),
+    plot.background  = element_rect(fill = "#39FF14"),
+    legend.position  = "top",
+    plot.title       = element_text(size = 17, colour = "red", face = "bold"),
+    axis.text.x      = element_text(angle = 90, vjust = 0.5, size = 6),
+    aspect.ratio     = 0.45
+  )
+
+bad_plot
+
+```
+
