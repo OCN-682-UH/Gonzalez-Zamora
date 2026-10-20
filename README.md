@@ -12,7 +12,7 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 
 ## Good Plot Bad Plot
 
-- Here are my [plots](https://connect.posit.cloud/fabizamora/content/01a1581e-f269-d309-c290-cfa73975a267?utm_source=rsconnect-rstudio)!
+- Here are my [plots](https://connect.posit.cloud/fabizamora/content/01a1581e-f269-d309-c290-cfa73975a267)!
 - The data comes from [Equity in Athletics Data Analysis](https://ope.ed.gov/athletics/#/datafile/list), via TidyTuesday
   - Covers 2073 institutions across five academic years, one row per institution x sport x year
 - `FZ_GoodPlot_BadPlot.qmd`
