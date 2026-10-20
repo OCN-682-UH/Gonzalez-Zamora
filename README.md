@@ -10,6 +10,17 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 
 3\. I think ketchup is *incredibly* overrated
 
+## Week 8
+
+- Homework URL: [OCN 682 - Fabiola Gonzalez Zamora - Week 8](https://connect.posit.cloud/fabizamora/content/01a15807-031b-4800-cdeb-f9a23557be1e?utm_source=rsconnect-rstudio)
+- `FZ_Week8_HW.qmd`: HW Quarto Scripts
+- `FZ_Week8_HW.html`: HW HTML
+  - `fig-height-genotype-1.png`
+  - `fig-leaf-genotype-1.png`
+  - `fig-height-genotype-inocula-1.png`
+  - `fig-leaf-genotype-inocula-1.png`
+- `FZ_Week8.qmd`: Practice Quarto Scripts
+
 ## Week 7
 
 - Homework URL: [OCN 682 - Fabiola Gonzalez Zamora - Week 7](https://connect.posit.cloud/fabizamora/content/01a13708-685e-08e4-b3e7-0675dbc1f80a)
@@ -40,8 +51,8 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 ## Week 4
 
 - This folder contains my Week 4 practice and homework
-  - 'FZ_Week4.R': Practice code
-  - 'FZ_Week4_HW1.R': HW 1 Scripts
+  - `FZ_Week4.R`: Practice code
+  - `FZ_Week4_HW1.R`: HW 1 Scripts
   - HW 1 Output:
     - `logmassfemalepenguins.png`
     - `FZ_Week4_HW2.R`: HW 2 Scripts
@@ -51,16 +62,16 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 ## Week 3
 
 - This folder contains my Week 3 assignment
-  - 'FZ_Week3.Rmd': My practice and homework scripts (organized by chunks)
-  - 'bill_length_by_island.png': Density plot homework assignment
+  - `FZ_Week3.Rmd`: My practice and homework scripts (organized by chunks)
+  - `bill_length_by_island.png`: Density plot homework assignment
   - Fun side note, I found the ***peRReo palette***
     - This palette uses colors from iconic reggaeton/Latin albums
 
 ## Week 2
 
 - This folder contains my Week 2 assignment
-  - 'Introscript.R': My introductory R script
-  - 'weightdata.csv': Data used by the script
+  - `Introscript.R`: My introductory R script
+  - `weightdata.csv`: Data used by the script
 
 #### Git Upload and Pull Hints
 
@@ -78,3 +89,9 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 1.  Make sure you are in the `Fall_2026` repository
 2.  git remote -v
 3.  git pull --rebase origin main
+
+#### Posit Connect Cloud Hints
+
+- With the .qmd file open, run this in the **console:**
+
+  `rsconnect::deployDoc(doc = here("Week_06", "Scripts", "FZ_Week6.qmd"), appTitle = "OCN 682 - Fabiola Gonzalez Zamora - Week 6" )`
