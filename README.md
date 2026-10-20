@@ -10,6 +10,15 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 
 3\. I think ketchup is *incredibly* overrated
 
+## Good Plot Bad Plot
+
+- Here are my [plots](https://connect.posit.cloud/fabizamora/content/01a1581e-f269-d309-c290-cfa73975a267?utm_source=rsconnect-rstudio)!
+- The data comes from [Equity in Athletics Data Analysis](https://ope.ed.gov/athletics/#/datafile/list), via TidyTuesday
+  - Covers 2073 institutions across five academic years, one row per institution x sport x year
+- `FZ_GoodPlot_BadPlot.qmd`
+- `FZ_GoodPlot_BadPlot.html`
+- `FZ_GoodPlot_BadPlot_Brainstorm.qmd`
+
 ## Week 8
 
 - Homework URL: [OCN 682 - Fabiola Gonzalez Zamora - Week 8](https://connect.posit.cloud/fabizamora/content/01a15807-031b-4800-cdeb-f9a23557be1e?utm_source=rsconnect-rstudio)
@@ -94,4 +103,4 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 
 - With the .qmd file open, run this in the **console:**
 
-  `rsconnect::deployDoc(doc = here("Week_06", "Scripts", "FZ_Week6.qmd"), appTitle = "OCN 682 - Fabiola Gonzalez Zamora - Week 6" )`
+`rsconnect::deployDoc(   doc      = here("Week_08", "Scripts", "FZ_Week8_HW.html"),   appTitle = "OCN 682 - Fabiola Gonzalez Zamora - Week 8")`
