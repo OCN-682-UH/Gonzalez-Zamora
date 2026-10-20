@@ -1,0 +1,281 @@
+---
+title: "Week 8 Practice, Functional Programming"
+author: "Fabiola Gonzalez Zamora"
+format: html
+---
+
+## Functional Programming
+
+```{r Load Packages, eval = FALSE}
+# Load packages
+library(here)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(here)
+library(beepr)
+library(peRReo)
+library(kableExtra)
+library(palmerpenguins)
+library(maps)
+library(PNWColors)
+```
+
+### Why Write Functions?
+
+- You have a task you want to use more than once
+- You want to keep your script clean and organized
+- You want to avoid mistakes with copy and paste
+- You minimize places where you need to update your code
+
+### Example: Rescaling Data
+
+- Rescale multiple columns to lie between 0 and 1 using a particular formula
+  - `x-min(x)/(max(x)-mix(x))`
+
+```{r Random Dataframe Rescaling Manually}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+
+head(df)
+
+# Manual Rescaling with a Function
+df <- df |>
+  mutate(
+    a = (a - min(a, na.rm = TRUE)) / (max(a, na.rm = TRUE) - min(a, na.rm = TRUE)),
+    b = (b - min(b, na.rm = TRUE)) / (max(b, na.rm = TRUE) - min(b, na.rm = TRUE)),
+    c = (c - min(c, na.rm = TRUE)) / (max(c, na.rm = TRUE) - min(c, na.rm = TRUE)),
+    d = (d - min(d, na.rm = TRUE)) / (max(d, na.rm = TRUE) - min(d, na.rm = TRUE))
+  )
+```
+
+### Create a Reusable Function
+
+```{r Reusable Scaling Function}
+# First, make the function
+rescale01 <- function(x) {
+  value <- (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+  return(value)
+}
+
+# Now let's make the data frame, a LOT easier huh
+df |>
+  mutate(
+    a = rescale01(a),
+    b = rescale01(b),
+    c = rescale01(c),
+    d = rescale01(d)
+  )
+
+# To make even easier --> mutate()
+df |>
+  mutate(across(everything(), rescale01))
+```
+
+### Anatomy of a function
+
+1.  Function name: `rescale01 describes` what it does (rescales to 0-1)
+2.  Arguments: `function(x)` lists the inputs
+
+- Multiple arguments: `function(x, y, z)`
+
+3.  Function body: The `{ }` block containing the code
+4.  Return statement: What the function returns
+
+```{r Fahrenheit to Celsius Conversion}
+# 1. Conversion Formula (within the {})
+# 2. Create Structure
+# 3. Add the formula
+# 4. Add the argument (within the function())
+# 5. Add return statement
+# 6. Test it!
+
+f_to_celsius <- function(temp_F) {
+  temp_C <- (temp_F - 32) * 5 / 9
+  return(temp_C)}
+
+f_to_celsius(32)
+
+# [1] 0
+```
+
+```{r Celsius to Kelvin}
+c_to_kelvin <- function(temp_C) {
+  temp_K <- (temp_C + 273.15)
+  return(temp_K)
+}
+
+c_to_kelvin(100)
+
+# [1] 373.15
+```
+
+### Making Plot Functions
+
+- Create a function to:
+  - Write once, use it many times
+  - Maintain consistency across figures
+  - Save time and reduce errors
+
+```{r More Penguins}
+# Make Palette
+pal <- pnw_palette("Lake", 3, type = "discrete")
+
+ggplot(penguins, aes(x = body_mass_g, y = bill_length_mm, color = island)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  scale_color_manual("Island", values = pal) +
+  theme_bw()
+```
+
+```{r Now with Function Clause, warning = FALSE}
+# Name and set up the function
+myplot <- function(data, x, y) { # Add flexible arguments
+  pal <- pnw_palette("Lake", 3, type = "discrete")
+  
+  ggplot(data, aes(x = {{x}}, y = {{y}}, color = island)) + # Use curly-curly for column names
+    geom_point() +
+    geom_smooth(method = "lm") +
+    scale_color_manual("Island", values = pal) +
+    theme_bw()
+}
+
+# Test it with first specifications
+myplot(data = penguins, x = body_mass_g, y = bill_length_mm)
+
+# Test it with other variables
+myplot(data = penguins, x = body_mass_g, y = flipper_length_mm)
+```
+
+```{r Adding Defaults and Layers}
+# Set defaults earlier on
+myplot <- function(data = penguins, x, y) {
+  pal <- pnw_palette("Lake", 3, type = "discrete")
+  
+  ggplot(data, aes(x = {{x}}, y = {{y}}, color = island)) +
+    geom_point() +
+    geom_smooth(method = "lm") +
+    scale_color_manual("Island", values = pal) +
+    theme_bw()
+}
+
+# Ogres, onions, plots, GOT LAYERS
+myplot(x = body_mass_g, y = flipper_length_mm) +
+  labs(x = "Body mass (g)", y = "Flipper length (mm)")
+```
+
+### If-Else Statement
+
+- Use `if-else` to execute different code based on a condition
+
+```{r If-else}
+# Sample if-else statement
+a <- 4
+b <- 5
+
+if (a > b) {
+  f <- 20
+} else {
+  f <- 10
+}
+
+f
+# [1] 10
+
+# Make function more flexible 
+myplot <- function(data = penguins, x, y, lines = TRUE) {
+  pal <- pnw_palette("Lake", 3, type = "discrete")
+  
+  if (lines == TRUE) {
+    ggplot(data, aes(x = {{x}}, y = {{y}}, color = island)) +
+      geom_point() +
+      geom_smooth(method = "lm") +
+      scale_color_manual("Island", values = pal) +
+      theme_bw()
+  } else {
+    ggplot(data, aes(x = {{x}}, y = {{y}}, color = island)) +
+      geom_point() +
+      scale_color_manual("Island", values = pal) +
+      theme_bw()
+  }
+}
+```
+
+```{r Test Our Flexible Function}
+# Default, with lines
+myplot(x = body_mass_g, y = flipper_length_mm)
+
+# Now with new condition, no lines
+myplot(x = body_mass_g, y = flipper_length_mm, lines = FALSE)
+```
+
+#### Awesome R Package `{BRRR}`
+
+```{r}
+library(BRRR)
+
+# Sounds with your favorite rappers
+skrrrahh("snoop") # Snoop
+
+skrrrahh("busta") # Busta Rhymes
+```
+
+### Ethical AI for Data Science
+
+- Why this matters?
+  - Upcoming AI-Assisted Community Data Sprint is your real-world training ground
+  - Sensitive community partner data
+  - Code that impacts real decisions
+  - Responsibilities to both the partner AND the broader community
+
+***Key Principles***
+
+1.  Verify, don't trust
+2.  Know what gets sent to the AI
+3.  Maintain reproducibility
+4.  Be transparent with partners
+
+***Workflow: Using AI Responsibly***
+
+1.  Start with Small Example or Dummy Data
+2.  Ask specific questions
+3.  Test AI's code on your dummy data first
+4.  Evaluate critically
+5.  Document decisions
+
+***Documentation***
+
+- Initial prompts: What did you ask and why?
+- Code evaluation: What worked? What failed? Hallucinations?
+- Your decisions: When did you reject the AI’s suggestion?
+- Ethics & transparency: How did you handle sensitive data?
+- Verification: How did you test the final solution?
+- Reflection: What did you learn about your own judgment as a coder?
+
+### Quick Reference
+
+✅ Have a clear question or specific problem
+
+✅ Prepare a data example (anonymized/dummy if sensitive)
+
+✅ Know what “correct” looks like
+
+✅ Plan to verify and test the output
+
+✅ Document what you used AI for
+
+✅ Be ready to rewrite if needed
+
+❌ Don’t upload sensitive data to external systems
+
+❌ Don’t copy-paste AI code without understanding it
+
+❌ Don’t assume the AI’s explanation is correct
+
+❌ Don’t skip testing or verification
+
+❌ Don’t hide which decisions came from AI vs. you

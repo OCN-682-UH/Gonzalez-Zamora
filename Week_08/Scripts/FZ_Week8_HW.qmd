@@ -1,0 +1,531 @@
+---
+title: "Fabi's Week 8 Homework"
+author: "Fabiola Gonzalez Zamora"
+format:
+  html:
+    theme: united
+    toc: true
+    toc-location: left
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show Code"
+execute:
+  warning: false
+  message: false
+knitr:
+  opts_chunk:
+    fig.path: "../Output/"
+    fig.width: 9
+    fig.height: 6
+    dpi: 300
+---
+
+```{r Load Packages}
+# Load packages
+library(here)
+library(ggplot2)
+library(readr)
+library(plotly)
+library(tidyverse)
+library(knitr)
+library(dplyr)
+library(here)
+library(peRReo)
+library(kableExtra)
+library(maps)
+library(PNWColors)
+```
+
+## Introduction
+
+This analysis uses monitoring data from Palikea Gulch, related to an endemic mint restoration project. The two reusable functions are as follows:
+
+1.  `summarise_mint()` calculates summary stats for any numeric measurement grouped by treatment
+2.  `plot_mint()` creates a consistent plot for any numeric measurements and selected variables
+
+```{r Setup Data}
+
+# Read the Palikea Data
+palikea_raw <- read_csv(
+  here("Week_08", "Data", "PalikeaRaw.csv"),
+  show_col_types = FALSE
+)
+
+# Clean up column names
+paliklean <- palikea_raw |>
+  rename(
+    survival = `Alive/Dead`,
+    height_cm = `Height (cm)`,
+    leaf_count = LeafCount
+  ) |>
+  mutate(
+    across( # Make below columns factors
+      c(
+        Genotype,
+        Inocula,
+        Frequency,
+        Site,
+        survival),
+      as.factor),
+
+    Timepoint = as.integer(Timepoint), # Mutate Timepoint to integers
+
+    genotype_inocula = interaction( # Add column that combines Genotype and Inocula
+      Genotype,
+      Inocula,
+      sep = " + "),
+
+    full_treatment = interaction( # Add column that combines Genotype, Inocula, and Frequency 
+      Genotype,
+      Inocula,
+      Frequency,
+      sep = " + "))
+
+head(paliklean)
+```
+
+- Clean dataset contains:
+  - `r nrow(paliklean)` observations
+  - `r n_distinct(paliklean$PlantID)` individual plants
+
+## Function 1: Summary
+
+- Remember the 4 elements to make a formula:
+
+1.  `data`: the dataset
+2.  `response`: what I'm measuring
+3.  `group`: grouping parameter
+4.  `survivors`: whether to include only the remaining plants
+
+```{r Summary Function}
+summarize_mint <- function(
+    data,
+    group,
+    response = NULL, # Means that measurement assumes no response unless one provided
+    survivors = TRUE, # Assumption is that we only want to analyze the surviving plants
+    survival_progression = FALSE) {
+  
+  if (survival_progression == TRUE) { # Use this if you want to see progress of survival between outplanting until the specific monitoring day / timepoint
+    summary_data <- data |>
+      group_by(
+        {{group}},
+        Timepoint) |>
+  summarise(
+    total_plants = n_distinct(PlantID),
+      living_plants = n_distinct(PlantID[survival == "Alive"]),
+      dead_plants = n_distinct(PlantID[survival == "Dead"]),
+      survival_ratio = living_plants / total_plants,
+      survival_perc = survival_ratio * 100,
+    .groups = "drop"
+  )
+  } else {
+    if (survivors == TRUE) { 
+      data <- data |>
+        filter(
+          Timepoint == 2, # Timepoint 2 is used since that represent the most up to date monitoring data
+          survival == "Alive"
+        )
+  }
+  
+  summary_data <- data |>
+    group_by({{group}}) |>
+    summarise(
+      n = sum(!is.na({{response}})),
+      mean = mean({{response}}, na.rm = TRUE),
+      sd = sd({{response}}, na.rm = TRUE),
+      se = sd / sqrt(n),
+      .groups = "drop"
+    )
+  }
+  
+  return(summary_data)
+}
+```
+
+### Example 1: Height by Inoculum and Genotype
+
+- Calculates the plant-height statistics for each inoculum treatment
+  - Because `survivors` defaults to `TRUE` only plants recorded as alive are included unless otherwise indicated
+
+```{r Height by Treatment Table}
+#| warning: FALSE
+#| label: tbl-height-by-treatment
+#| tbl-cap: "Height of Surviving Palikea Mints by Treatment"
+
+summarize_mint(
+  data = paliklean,
+  group = full_treatment,
+  response = height_cm,
+  survival_progression = FALSE) |>
+  mutate(across(
+    c(mean, sd, se),
+    ~ round(.x, 2))) |>
+  kable(
+    col.names = c(
+      "Full Treatment",
+      "n",
+      "Mean (cm)",
+      "SD",
+      "SE")) |>
+  kable_classic()
+```
+
+### Example 2: Leaf Counts by Treatment
+
+- Same function, different biological question
+- What I'm changing:
+  - `response` to `Leaf Count`
+
+```{r Leaf Counts by Treatment Table}
+#| warning: FALSE
+#| label: tbl-leaf-by-treatment
+#| tbl-cap: "Leaf Count Among Surviving Mints"
+
+summarize_mint(
+  data = paliklean,
+  group = full_treatment,
+  response = leaf_count) |>
+  mutate(across(
+    c(mean, sd, se),
+    ~ round(.x, 2))) |>
+  kable(
+    col.names = c(
+      "Full Treatment",
+      "n",
+      "Mean Leaf Count",
+      "SD",
+      "SE")) |>
+  kable_classic()
+
+```
+
+#### Combine Tables to Have Full Summary
+
+- The `tbl-mint-summary` combines `tbl-height-by-treatment` and `tbl-leaves-by-treatment`
+  - The last column describes what the measurement is
+
+```{r Combining Tables}
+#| warning: FALSE
+#| label: tbl-mint-summary
+#| tbl-cap: "Summary Table of Surviving Palikea Mints"
+
+mint_summary <- bind_rows(
+  summarize_mint(
+    data = paliklean,
+    group = genotype_inocula,
+    response = height_cm) |>
+    mutate(measurement = "Height (cm)"), # Make column before binding
+  
+  summarize_mint(
+    data = paliklean,
+    group = genotype_inocula,
+    response = leaf_count) |>
+    mutate(measurement = "Leaf Count") # See above, need to make column for summary table
+  ) |>
+  kable(
+    col.names = c(
+      "Genotype + Inocula",
+      "n",
+      "Mean",
+      "SD",
+      "SE",
+      "Measurement")) |> # Need this column so that reader knows what the associated data is attached to
+  kable_classic()
+
+mint_summary
+```
+
+### Example 3: Survival Progression Table
+
+- Here, we set `survival_progression = TRUE`, so it does not truncate the data frame to only the survivors, allowing summary of surviving plants through each monitoring point
+  - `arrange(Timepoint)` arranges each column by Outplant (0), Quarter 1 (1), and Quarter 2 (2)
+
+```{r Survial Progression Table}
+#| warning: FALSE
+#| label: tbl-survival-progression-genotype
+#| tbl-cap: "Survival Progression of Palikea Mints"
+
+summarize_mint(
+  data = paliklean,
+  group = genotype_inocula,
+  survival_progression = TRUE) |>
+  arrange(Timepoint) |>
+  kable(
+    col.names = c(
+      "Genotype + Inocula",
+      "Timepoint",
+      "Outplant Total",
+      "Living Plants",
+      "Dead Plants",
+      "Survival Ratio",
+      "Survival Percentage"
+    )
+  ) |>
+  kable_classic()
+  
+```
+
+## Function 2: Minty Plot
+
+Plotting function uses the `summarize_mint()`to calculate means and standard errors.
+
+- User can change:
+  - Response variable
+  - Grouping variable
+  - Labels, titles, etc.
+  - Colors
+  - Raw observations
+  - Whether dead plants are excluded
+
+```{r Defining Plot Function}
+
+minty_plot <- function(
+    data,
+    group,
+    response = NULL, # Again, assumes no response to but can change this parameter by giving response a value
+    survivors = TRUE, # Assumption to assume analysis of surviving plants
+    survival_progression = FALSE, # See above, only TRUE if we want to look at survival progression
+    show_points = TRUE) {
+  
+  number_colors <- data |> # This is so that the colors are assigned according to the number of distinct grouping variables
+    distinct({{group}}) |>
+    nrow()
+  
+  pal <- pnw_palette( # PNW palette
+    "Starfish",
+    number_colors)
+  
+  
+  ## BRANCH 1: SURVIVAL OVER TIME
+  if(survival_progression == TRUE) {
+    plot_summary <- summarize_mint(
+      data = data,
+      group = {{group}},
+      survival_progression = TRUE)
+  
+  pali_plot <- ggplot(
+  plot_summary,
+  aes(
+    x = Timepoint,
+    y = survival_perc,
+    color = {{ group }},
+    group = {{ group }})) + # `group` in aes keeps one line per treatment
+  geom_line(
+    linewidth = 0.8) +
+  geom_point(
+    size = 2) +
+  scale_color_manual(
+    values = pal) +
+  scale_x_continuous(
+    breaks = sort(
+      unique(plot_summary$Timepoint))) + 
+  scale_y_continuous( # survival_perc is already 0-100 scale, so scale = 1 stops the label_percent() from multiplying by 100 again
+    limits = c(0, 100),
+    labels = scales::label_percent(
+      scale = 1)) +
+  labs(
+    x = "Timepoint",
+    y = "Survival (%)",
+    color = "Treatment") +
+  theme_gray()
+      
+  } else {
+  
+  ## BRANCH 2: GROUP MEANS OF A RESPONSE
+    plot_summary <- summarize_mint(
+      data = data,
+      group = {{ group }},
+      response = {{ response }},
+      survivors = survivors,
+      survival_progression = FALSE)
+    
+    plot_data <- data 
+    
+    if(survivors == TRUE) { # Match raw points to the data frame used for the summary 
+      plot_data <- plot_data |>
+        filter(
+          Timepoint == 2,
+          survival == "Alive")
+    }
+    pali_plot <- ggplot( # Plot uses plot_summary for bars, points uses the raw plot_data for points
+      plot_summary,
+      aes(
+        x = {{group}},
+        y = mean,
+        fill = {{group}})) +
+      geom_col(
+        width = 0.7,
+        alpha = 0.9) +
+      geom_errorbar(
+        aes(
+          ymin = mean - se,
+          ymax = mean + se),
+        width = 0.15,
+        linewidth = 0.7) +
+      scale_fill_manual(
+        values = pal) +
+      labs(
+        x = "Treatment",
+        y = "Mean",
+        fill = "Treatment") +
+      theme_gray()
+    
+    if(show_points == TRUE) { # Here I overlay the points
+      pali_plot <- pali_plot +
+        geom_jitter(
+          data = plot_data,
+          aes(
+            x = {{ group }},
+            y = {{ response }}),
+          inherit.aes = FALSE, # Required because this layers reads raw data with different columns that those in plot_summary
+          width = 0.1,
+          height = 0,
+          alpha = 0.5,
+          size = 1.5)
+    }
+    }
+  return(pali_plot) 
+}
+          
+```
+
+### Example 4: Height by Genotype
+
+- Here, we define:
+  - `response = height_cm`
+  - `group = Genotype`
+  - `survivors = TRUE`
+  - `show_points = TRUE`
+
+```{r Height of Survivors by Genotype Plot}
+#| label: fig-height-genotype
+
+minty_plot(
+  data = paliklean,
+  response = height_cm,
+  group = Genotype,
+  survivors = TRUE,
+  show_points = TRUE) +
+  labs(
+    title = "Height of Surviving Mints by Genotype",
+    y = "Plant Height (cm)",
+    x = "Genotype"
+  )
+
+```
+
+### Example 5: Leaf Count by Genotype
+
+- Here, we define:
+  - `response = leaf_count`
+  - `group = Genotype`
+  - `survivors = TRUE`
+  - `show_points = TRUE`
+
+```{r Leaf Count by Genotype Plot}
+#| label: fig-leaf-genotype
+
+minty_plot(
+  data = paliklean,
+  response = leaf_count,
+  group = Genotype,
+  survivors = TRUE,
+  show_points = TRUE) +
+  labs(
+    title = "Leaf Count of Surviving Mints by Genotype",
+    y = "Leaf Count",
+    x = "Genotype"
+  ) + 
+  theme(
+    plot.title = element_text(size = 10,
+                              face = "bold")
+  )
+
+```
+
+### Example 6: Height of Survivors, Genotype + Treatment
+
+- Here, we define:
+  - `response = height_cm`
+  - `group = genotype_inocula`, which is the interaction we defined in data setup, added associated column
+  - `survivors = TRUE`
+  - `show_points = TRUE`
+
+```{r Height of Survivors of Gen ~ Treatment}
+#| label: fig-height-gen-inocula
+
+height_plot <- minty_plot(
+  data = paliklean,
+  response = height_cm,
+  group = genotype_inocula,
+  survivors = TRUE,
+  show_points = TRUE) +
+  labs(
+    title = "Height of Surviving Mints by Genotype + Treatment",
+    y = "Plant Height (cm)",
+    x = "Genotype + Inocula"
+  ) +
+  theme(
+    plot.title = element_text(size = 15,
+                              face = "bold"),
+    axis.text.x = element_text(angle = 45,
+                               vjust = 0.6,
+                               size = 6),
+      legend.text = element_text(size = 6),
+    legend.background = element_rect(fill = "grey87")
+  )
+
+height_plot
+```
+
+### Example 7: Leaf Count of Survivors, Genotype + Treatment
+
+- Here, we define:
+  - `response = leaf_count`
+  - `group = genotype_inocula`
+  - `survivors = TRUE`
+  - `show_points = TRUE`
+
+```{r Leaf Count of Survivors of Gen ~ Treatment}
+#| label: fig-leaf-gen-inocula
+
+leaf_plot <- minty_plot(
+  data = paliklean,
+  response = leaf_count,
+  group = genotype_inocula,
+  survivors = TRUE,
+  show_points = TRUE) +
+  labs(
+    title = "Leaf Count of Surviving Mints by Genotype + Treatment",
+    y = "Leaf Count",
+    x = "Genotype + Inocula"
+  ) +
+  theme(
+    plot.title = element_text(size = 14,
+                              face = "bold"),
+    axis.text.x = element_text(angle = 45,
+                               vjust = 0.6,
+                               size = 6),
+      legend.text = element_text(size = 6),
+    legend.background = element_rect(fill = "grey87")
+  )
+
+leaf_plot
+```
+
+### Interactive Plots
+
+- Want to know exactly the summary stats for each interaction?
+  - See below and hover above columns and/or points for more!
+
+```{r Height, Interactive}
+height_plot |>
+  plotly::ggplotly() 
+```
+
+
+```{r Leaf Count, Interactive!}
+leaf_plot |>
+  plotly::ggplotly()
+```
+
