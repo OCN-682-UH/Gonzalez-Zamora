@@ -1,0 +1,467 @@
+---
+title: "Week 9 Practice, Working with Factors & Strings"
+author: "Fabiola Gonzalez Zamora"
+format: html
+---
+
+## Working with Factors, Pt. 1
+
+[Forcats cheat sheet](https://raw.githubusercontent.com/rstudio/cheatsheets/master/factors.pdf)
+
+```{r Load Packages}
+library(tidyverse)
+library(here)
+library(ggplot2)
+library(dplyr)
+library(here)
+library(beepr)
+library(peRReo)
+library(gm) # See https://flujoo.github.io/gm/ for setup
+```
+
+```{r Load Data}
+# Read Directly from GitHub
+income_mean <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-02-09/income_mean.csv")
+
+head(income_mean)
+
+# Built-in Data in {dplyr}
+starwars
+
+head(starwars)
+```
+
+### What is a factor?
+
+- A factor is specialized version of a character
+  - Value a factor can take are **levels**
+  - Levels let you control the **order** of categories in plots and summaries
+  - The default order of levels is always alphabetical
+  - R stores factors as **integers** (1,2,3...) mapped to level labels
+
+```{r Factor Examples}
+fruits <- factor(c("Apple", "Grape", "Banana"))
+fruits
+
+# [1] Apple  Grape  Banana
+# Levels: Apple Banana Grape
+```
+
+#### Reading in Data Safely
+
+- `read.csv` = base R
+  - Strings become **factors** automatically
+- `read_csv` = tidyverse
+  - Strings stay as **characters**
+- Always use `read_csv` from {readr}
+
+### The{forcats} Package
+
+- **For cat**egorical data
+- All main functions start with `fct_`
+
+#### `fct_lump()` — Lump Rare Levels Together
+
+- `fct_lump(x, n)` keeps the `n` most common levels and collapses everything else into `"Other"`
+  - Result is a **factor** and no longer alphabetical, order determined by factors levels
+
+```{r Star Wars Data}
+
+starwars |>
+  filter(!is.na(species)) |> # Remove NAs
+  count(species, sort = TRUE)
+
+star_counts <- starwars |>
+  filter(!is.na(species)) |>
+  mutate(species = fct_lump(species, n = 3)) |>
+  count(species)
+
+star_counts
+```
+
+#### `fct_reorder()` — Sort by Another Variable
+
+- `fct_reorder(f, x) reorders the levels of factor`f`by the values of`x\`
+
+```{r Star Wars Bar Plot}
+
+# Sorting is Unclear
+star_counts |>
+  ggplot(aes(x = species, y = n)) +
+  geom_col()
+
+# Sort by Another Variable
+star_counts |>
+  ggplot(aes(x = fct_reorder(species, n), y = n)) +
+  geom_col() +
+  labs(x = "Species")
+
+# Descending Order
+star_counts |>
+  ggplot(aes(x = fct_reorder(species, n, .desc = TRUE), y = n)) + # Add .desc = TRUE to flip the order
+  geom_col() +
+  labs(x = "Species")
+```
+
+```{r Income Mean Data}
+total_income <- income_mean |>
+  group_by(year, income_quintile) |>
+  summarise(income_dollars_sum = sum(income_dollars),
+            .groups = "drop") |>
+  mutate(
+    income_quintile = factor(income_quintile))
+
+# Line Plot — Legend in Wrong Order
+total_income |>
+  ggplot(aes(x = year, y = income_dollars_sum,
+             color = income_quintile)) +
+  geom_line()
+
+# Reorder by Two Variables
+total_income |>
+  ggplot(aes(x = year, y = income_dollars_sum,
+             color = fct_reorder2(income_quintile, year, income_dollars_sum))) +
+  geom_line() +
+  labs(color = "Income Quintile")
+```
+
+- `mutate(income_quintile = factor(income_quintile))` converts the character column to a factor so we can reorder it
+- `fct_reorder2(f, x, y)` — Reorders by 2 Variables:
+  - Reorders `f` by the values of `y` at the largest values of `x`
+  - Aligns legend with the right end of the lines
+
+#### Setting Levels Manually
+
+- Use the `levels` argument inside `factor()` to set the exact order you want
+  - This is especially useful for months, treatments, etc. with a meaniningful inherent order that isn't alphabetical
+
+```{r Manual Levels}
+# Without levels — alphabetical by default
+x1 <- factor(c("Jan", "Mar", "Apr", "Dec"))
+
+x1
+
+# [1] Jan Mar Apr Dec
+# Levels: Apr Dec Jan Mar
+
+# With levels — your specified order
+x1 <- factor(c("Jan", "Mar", "Apr", "Dec"),
+             levels = c("Jan", "Mar", "Apr", "Dec"))
+x1
+
+# [1] Jan Mar Apr Dec
+# Levels: Jan Mar Apr Dec
+```
+
+#### Subsetting Factors
+
+- Filter to Common Species
+
+```{r Filtered Star Wars}
+starwars_clean <- starwars |>
+  filter(!is.na(species)) |>
+  count(species, sort = TRUE) |>
+  mutate(species = factor(species)) |> # convert to factor
+  filter(n > 3) # keep only common species
+
+starwars_clean
+
+levels(starwars_clean$species) # check the factor levels
+```
+
+#### `droplevels()` — Remove Unused Levels
+
+- `droplevels()` (base R) or `fct_drop()` (forcats) removes any levels that no longer appear in the data
+
+```{r Drop Levels}
+starwars_clean <- starwars |>
+  filter(!is.na(species)) |>
+  count(species, sort = TRUE) |>
+  mutate(species = factor(species)) |>
+  filter(n > 3) |>
+  droplevels() # Removes unused levels
+
+levels(starwars_clean$species)
+# [1] "Droid" "Human"
+```
+
+#### `fct_recode` — Rename Levels
+
+- `fct_recode(f "new name" = "old name")` renames one or more levels
+
+```{r Rename Levels}
+starwars_clean <- starwars |>
+  filter(!is.na(species)) |>
+  count(species, sort = TRUE) |>
+  mutate(species = factor(species)) |>
+  filter(n > 3) |>
+  droplevels() |>
+  mutate(species = fct_recode(species, "Humanoid" = "Human"))
+
+starwars_clean
+```
+
+#### Other Helpful {forcats} Functions
+
+1.  `fct_relevel()` = Move specific levels to the front
+2.  `fct_rev()` = Reverse order of levels
+3.  `fct_collapse()` = Collapse multiple levels into one
+4.  `fct_na_value_to_level()` = Convert NA into an explicit level
+5.  `fct_infreq()` = Order levels by frequency
+
+More reading:
+
+- [R Factors](https://r4ds.had.co.nz/factors.html)
+- [Stat 545 Factors](https://stat545.com/factors-boss.html)
+
+## Working with Strings, Pt. 2
+
+```{r Load Packages, Pt. 2}
+library(here)
+library(tidyverse)
+library(tidytext)
+library(wordcloud)
+library(janeaustenr)
+```
+
+### Intro to {stringr}
+
+- What is a string?
+  - A string and a character are the same thing
+  - Presence of quotation indicates a string
+- 4 basic families of the `stringer` package:
+
+1.  Manipulation: functions that let you manipulate individual characters within the strings in character vectors
+2.  Whitespace tools to add, remove, and manipulate whitespace
+3.  Locale sensitive operations whose behavior will vary from locale to locale
+4.  Pattern matching functions: recognize 4 engines of pattern description. The most common is regular expressions, but there are three other tools.
+
+#### Manipulation
+
+- Paste words together
+  - Can be useful if you have two columns of treatments and want to combine into one
+
+```{r Manipulation}
+paste("High temp", "Low pH")
+
+# [1] "High temp Low pH"
+
+## Add a dash between words
+
+paste("High temp", "Low pH", sep = "-")
+
+# [1] "High temp-Low pH"
+
+## Remove the space between the words
+
+paste0("High temp", "Low pH")
+
+# [1] "High tempLow pH"
+
+## Working with vectors
+shapes <- c("Square", "Circle", "Triangle")
+paste("My favorite shape is a", shapes)
+
+# [1] "My favorite shape is a Square"  
+# [2] "My favorite shape is a Circle"  
+# [3] "My favorite shape is a Triangle"
+```
+
+```{r Manipulation, Individual Characters}
+## Vector of Shapes
+
+shapes
+
+str_length(shapes) # how many letters are in each word?
+
+seq_data <- c("ATCCCGTC")
+
+str_sub(seq_data, start = 2, end = 4) # extract the 2nd to the 4th amino acid
+
+## Modifying Strings
+
+str_sub(seq_data, start = 3, end = 3) <- "A"
+seq_data
+
+# [1] "ATACCGTC"
+
+## Duplicating strings
+
+str_dup(seq_data, times = c(2, 3))
+# [1] "ATACCGTCATACCGTC"        
+# [2] "ATACCGTCATACCGTCATACCGTC"
+```
+
+#### Whitespace
+
+- If you have a column that has extra spaces, R will treat them as different values
+- `str_trim()` can handle the messy data
+
+```{r Removing Whitespace}
+badtreatments <- c("High", " High", "High ", "Low", "Low")
+
+badtreatments
+
+# [1] "High"  " High" "High " "Low"   "Low" 
+
+## Remove whitespace:
+str_trim(badtreatments) # this removes both
+
+# [1] "High" "High" "High" "Low"  "Low" 
+
+## Want to remove only from one side?
+
+str_trim(badtreatments, side = "left") # this removes left
+
+# [1] "High"  "High"  "High " "Low"   "Low"
+```
+
+- Opposite of `str_trim()` is `str_pad()` to add white space to either side
+
+```{r Adding Whitespace}
+str_pad(badtreatments, 5, side = "right") # add a white space to the right side after the 5th character
+
+# Want to add a character instead?
+str_pad(badtreatments, 5, side = "right", pad = "1") # add a 1 to the right side after the 5th character
+```
+
+#### Locale Sensitive
+
+- `str_to_upper()` makes everything upper case
+- `str_to_lower()` makes everything lower case
+- `str_to_title()` makes it a title case
+
+### Pattern Matching
+
+- {stringr} has functions to view, detect, locate, extract, match, replace, and split strings based on specific patterns
+  - `str_detect()`
+  - `str_view()`
+  - `str_locate()`
+
+### regex: Regular Expressions
+
+- Here is a [cheat sheet](https://rstudio.github.io/cheatsheets/regex.pdf) for `regex`
+- Several types of regular expressions
+  - Metacharacters
+    - .  \| ( ) \[ { \$ \* + ?
+  - Sequences
+  - Quantifiers
+  - Character classes
+  - POSIX character classes (Portable Operating System Interface)
+
+#### Metacharacters
+
+- `str_replace()` only replaces the first instance, `str_replace_all()` replaces all values
+
+```{r Metacharacters}
+vals <- c("a.b", "b.c", "c.d")
+
+# string, pattern, replace
+str_replace(vals, "\\.", " ")
+
+# [1] "a b" "b c" "c d"
+```
+
+#### Sequences
+
+- Sequences, as the name suggests, refer to the sequences of characters which can match
+
+```{r Sequences}
+# Subset the vector to only keep strings with digits
+val2 <- c("test 123", "test 456", "test")
+
+str_subset(val2, "\\d")
+
+# [1] "test 123" "test 456"
+```
+
+#### Character Class
+
+- Character class is a list of characters enclose by `[]`
+- The regex character class, `[aA]`, matches any lowercase letter `a` or any uppercase `A`
+
+```{r Character Class}
+val2 <- c("test 123", "test 456", "test")
+
+# Count number of lowercase vowels
+str_count(val2, "[aeiou]")
+# [1] 1 1 1
+
+# Count any digit
+str_count(val2, "[0-9]")
+# [1] 3 3 0
+```
+
+#### Quantifiers
+
+- `^` = beginning of string
+- `$` = end of string
+- `\n` = new line
+- `+` = one or more of previous
+- `*` = zero of more of previous
+- `?` = zero or one of previous
+- `{5}` = exactly five of previous
+- `{2, 5}` = between 2 and 5 of previous
+- `{2, }` = more than 2 of previous
+
+```{r Example: Find Phone Numbers}
+strings <- c("550-153-7578",
+             "banana",
+             "435.114.7586",
+             "home: 672-442-6739")
+
+phone <- "([2-9][0-9]{2})[- .]([0-9]{3})[- .]([0-9]{4})"
+
+# Which strings contain phone numbers?
+str_detect(strings, phone)
+
+# [1]  TRUE FALSE  TRUE  TRUE
+
+# Create phone number subset:
+test <- str_subset(strings, phone)
+test
+
+# [1] "550-153-7578"       "435.114.7586"      
+# [3] "home: 672-442-673
+```
+
+## {tidytext}
+
+- Package for text mining and making text tidy. This is very helpful for social sciences or anyone that uses survey data
+- Also really helpful for text mining abstracts to write a review paper on a topic
+
+```{r Jane Austen Data}
+# Quick Look
+head(austen_books())
+
+# Clean, add column for line and chapter
+original_books <- austen_books() |> # get all of Jane Austen's books
+  group_by(book) |>
+  mutate(line = row_number(), # find every line
+         chapter = cumsum(str_detect(text, regex("^chapter [\\divxlc]", # count the chapters (starts with the word chapter followed by a digit or roman numeral)
+                                                 ignore_case = TRUE)))) |> # ignore lower or uppercase
+  ungroup() # ungroup it so we have a dataframe again
+
+# don't try to view the entire thing... it's >73000 lines...
+head(original_books)
+
+# Want only one word per row for further mining?
+tidy_books <- original_books |>
+  unnest_tokens(output = word, input = text) # add a column named word, with the input as the text column
+
+head(tidy_books) # there are now >725,000 rows. Don't view the entire thing!
+
+# Meaningless words can be removed as well!
+# Example of all the stopwords
+head(get_stopwords())
+
+cleaned_books <- tidy_books |>
+  anti_join(get_stopwords()) # dataframe without the stopwords
+
+head(cleaned_books)
+
+# What are the most common words?
+cleaned_books |>
+  count(word, sort = TRUE)
+```
+

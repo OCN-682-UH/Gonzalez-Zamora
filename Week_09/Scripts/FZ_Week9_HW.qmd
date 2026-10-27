@@ -1,0 +1,222 @@
+---
+title: "Fabi's Week 9 Homework"
+author: "Fabiola Gonzalez Zamora"
+format:
+  html:
+    theme: united
+    toc: true
+    toc-location: left
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show Code"
+execute:
+  warning: false
+  message: false
+knitr:
+  opts_chunk:
+    fig.path: "../Output/"
+    fig.width: 9
+    fig.height: 6
+    dpi: 300
+---
+
+### Week 9 Homework Instructions
+
+- Make a plot where at least one axis is a factor in a meaningful order
+- `intertidal.csv` and `intertidal_latitude.csv`
+- May need to use string-cleaning skills
+  - Check out [{janitor} package](https://sfirke.github.io/janitor/articles/janitor.html) to tidy column names
+- *Tide height*: must go Low, Mid, High on the plot
+- *Site*: must go in order of latitude (N to S or S to N)
+
+```{r Load Libraries}
+library(tidyverse)
+library(here)
+library(ggplot2)
+library(dplyr)
+library(here)
+library(beepr)
+library(peRReo)
+library(gm)
+library(janitor)
+```
+
+### Cleaning Intertidal Data
+
+- `clean_names()` standardizes headers, fixes the funky spaces
+- `str_extract()` pulls the tide, strips junk
+- Format tide order explicitly using `factor(levels())`
+
+```{r Clean Intertidal Data}
+# Read Data
+intertidal_raw <- read_csv(here("Week_09", "Data", "intertidaldata.csv"), show_col_types = FALSE)
+
+
+# Make tide levels
+tide_levels <- c("Low", "Mid", "High")
+
+# Clean data
+intertidal <- intertidal_raw |>
+  clean_names() |> # Bare Rock = bare_rock, Mussels = mussels
+  mutate(
+    quadrat = str_extract(quadrat, "Low|Mid|High"), # str_extract pulls values of interest, strips extra spaces
+    quadrat = factor(quadrat, levels = tide_levels)
+  )
+
+# Let's check my work real quick
+sum(is.na(intertidal$quadrat)) # [1] 0
+levels(intertidal$quadrat) # [1] "Low"  "Mid"  "High"
+```
+
+### Joining Latitude Data
+
+- Files share site names, so we can use `left_join()`
+- Used `fct_reorder()` to format the site order
+
+```{r Clean and Join Latitude Data}
+# Read data
+latitude_raw   <- read_csv(here("Week_09", "Data", "intertidaldata_latitude.csv"), show_col_types = FALSE)
+
+latitude <- latitude_raw |>
+  clean_names() |>
+  mutate(site = fct_reorder(site, latitude, .desc = TRUE))
+
+levels(latitude$site) # lil sanity check
+
+intertidal <- intertidal |>
+  left_join(latitude, by = "site") |>
+  mutate(site = fct_reorder(site, latitude, .desc = TRUE))
+
+# fct_reorder() sets level by another variable
+# .desc = TRUE puts northern sites first N -> S
+
+levels(intertidal$site) # Check order
+
+# [1] "Starfish Point"  = 47.7 N
+# [15] "Scripps"        = 32.9 N
+```
+
+### Cover by Tide Height
+
+In @fig-mean-percent-cover, `Tide Height` is on the x-axis in Low -\> Mid -\> High order, and each `taxon` has its respective % cover plotted
+
+- `Low` dominated by algae (64%)
+- `Mid` dominated by mussels (41%)
+- `High` dominated by small barnacles (37%)
+
+```{r Mean Cover by Tide}
+#| label: fig-mean-percent-cover
+#| fig-cap: "Mean Percent Cover by Tide Height, Averaged across 15 sites"
+
+# Need to conver wide to long, each taxon and percent_cover become individual observations (rows) for better plotting
+cover <- intertidal |>
+  select(site, transect, quadrat, latitude,
+         bare_rock:anemone) |> # Lil shortcut to select adjacent columns
+  pivot_longer(bare_rock:anemone,
+               names_to = "taxon", values_to = "percent_cover")
+
+# Now need to summarize percent coverage 
+number_colors <- cover |>
+  distinct(taxon) |>
+  nrow()
+
+# Make the palette
+pal <- latin_palette(
+    "natti",
+    number_colors)
+
+dazone <- cover |>
+  group_by(quadrat, taxon) |>
+  summarise(
+    mean_cover = mean(percent_cover, na.rm = TRUE), 
+    .groups = "drop") |>
+  mutate(
+    taxon = str_replace_all(taxon, "_", " ") |> # This replaces all matches -> "_" get replaced as " "  
+      str_to_title(), # Converts to title case
+    taxon = fct_reorder2(taxon, as.integer(quadrat), mean_cover) # orders levels by the second variable’s value at the largest value of the first
+  )
+
+# Time for plot!
+algeez <- ggplot(dazone, 
+                 aes(x = quadrat, 
+                     y = mean_cover,
+                     color = taxon,
+                     group = taxon)) + # Need since geom_line won't cross discrete axis without it
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2.1) +
+  scale_color_manual(
+    values = pal) +
+  labs(
+    title = "Algae, Mussels, & Barnacles Dominate Low, Mid, & High Zones, Respectively",
+    x = "Tide height",
+    y = "Mean cover (%)",
+    color = NULL
+  ) +
+theme_minimal(base_size = 10)
+
+algeez
+
+ggsave(here("Week_09", "Output", "mean_cover_per_site.png"),
+       plot = algeez)
+```
+
+### Site by Taxon, Faceted by Tide Height
+
+In @fig-cover-heat-map, I used both ordering, with`sites` ordered by latitude, and facets on x ordered Low -\> Mid -\> High
+
+- Used `geom_tile` to create a heat map to visualize `site` against `tide` and its relative `% cover` represented by color intensity
+
+```{r Zonation Heat Map}
+#| label: fig-cover-heat-map
+#| fig-cap: "Mean percent cover by site and taxon, faceted by tide heigh"
+#| fig-height: 8
+
+site_zone <- cover |> 
+  group_by(site, latitude, quadrat, taxon) |> # group_by() and summarise() preserve factor levels
+  summarise(
+    mean_cover = mean(percent_cover, na.rm = TRUE),
+    .groups = "drop") |>
+  mutate(
+    taxon = str_replace_all(taxon, "_", " ") |> # Removes "_" with a space for cleaner labels
+      str_to_title(), # Capitalizes first word here
+    site_label = fct_reorder(
+      paste0(site, ", ", sprintf("%.1f", latitude), "\u00B0N"), 
+      latitude) # want to make sure the factor is ordered by latitude
+  )
+
+# sprintf("%.1f", latitude): rounds the latitude to  one decimal place and turns it into a string (e.g., 45.32 becomes "45.3")
+# Unicode escape sequence for the degree symbol (°), followed by "N" for North
+
+
+zonegrid <- ggplot(site_zone,
+                   aes(
+                     x = taxon,
+                     y = site_label, 
+                     fill = mean_cover)) +
+  geom_tile(color = "white",
+             linewidth = 0.4) +
+  facet_wrap(~ quadrat) + # Facets inherit the Low -> Mid -> High facotr order
+  scale_fill_gradient(low = "#FFF1F7", # Sequential single-hue scale: darkness rises with cover
+                      high = "#72069A",
+                      name = "Mean\ncover (%)") + # Stack "Mean" and "cover (%)" with \n
+  scale_x_discrete(position = "top") +
+  labs(
+    title = "Zonation holds across 15 sites spanning 15 degrees of latitude",
+    x = NULL,
+    y = NULL,
+    subtitle = "Sites ordered North (top) to South (bottom)"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid  = element_blank(),
+    axis.text.x = element_text(angle = 45,
+                               hjust = 0,
+                               vjust = 0),
+    strip.text  = element_text(face = "bold")
+  )
+
+zonegrid
+
+ggsave(here("Week_09", "Output", "cover_heat_map.png"),
+       plot = zonegrid)
+```
