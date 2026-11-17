@@ -10,7 +10,21 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 
 3\. I think ketchup is *incredibly* overrated
 
+## Week 12
+
+- Shiny App URL: [FabApp](https://01a1eb28-cbc7-cfa1-b2f3-ec2229952f57.share.connect.posit.cloud)
+  - Application for comparing the growing requirements of 140 edible plants
+- Data:
+  - [TidyTuesday, Edible Plants](https://github.com/rfordatascience/tidytuesday/tree/main/data/2026/2026-02-03).
+  - 140 plants, 20 variables covering taxonomy, cultivation group, sunlight and water requirements, preferred soil pH, germination and harvest timings, nutritional notes and a short description.
+  - `common_name` is unique for every row, so selecting a name returns exactly one plant.
+- Outputs:
+  - `compare_plot`: dynamic ggplot bar chart (plant selection and variable)
+  - `compare_table`: table of selected values (plant selection and variable)
+  - `garden_plot`: ggplot garden-bed layout (button that randomizes)
+
 ## Week 9
+
 - Homework URL: [OCN 682 - Fabiola Gonzalez Zamora - Week 9](https://01a17f1c-3768-00a7-5e0c-42d7e0f7bc25.share.connect.posit.cloud)
 - `FZ_Week9_HW.qmd`: HW Quarto Scripts
 - `FZ_Week9_HW.html`: HW HTML
