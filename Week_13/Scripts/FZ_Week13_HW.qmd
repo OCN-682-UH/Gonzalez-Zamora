@@ -1,0 +1,233 @@
+---
+title: "Fabi's Week 13 Homework"
+author: "Fabiola Gonzalez Zamora"
+format:
+  html:
+    theme: united
+    toc: true
+    toc-location: left
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show Code"
+execute:
+  warning: false
+  message: false
+knitr:
+  opts_chunk:
+    fig.path: "../Output/"
+    fig.width: 9
+    fig.height: 6
+    dpi: 300
+---
+
+### Week 13 Homework Instructions
+
+- Set of 4 .csv files in data/homework.
+- Each file is a time series of temperature and light data collected in tide pools in Oregon by Jenn Fields.
+  - Bring in all 4 files and calculate the **mean** and **standard deviation** of both temperature (`Temp.C`) and light (`Intensity.lux`) for each tide pool.
+  - Use `for loop` and `map()` functions in script
+
+```{r Load Libraries}
+library(tidyverse)
+library(here)
+library(knitr)
+library(kableExtra)
+library(wesanderson)
+```
+
+## Reading in the Data
+
+- Files have a `PoolID` column, so we can group by that column, rather than the filename
+- Four tide pools in Oregon, logged every \~15 minutes from 16 June to 17 August 2019.
+- Each file holds one pool, identified by a `PoolID` column, with two *Phyllospadix* removal pools and two controls
+
+```{r Reading in Data}
+#| label: list-files
+
+
+## Let's get to the folder
+PoolPath <- here("Week_13", "Data", "homework")
+
+## full.names = TRUE keeps the whole path, which is what
+## read_csv() needs to actually open them.
+files <- dir(path = PoolPath, pattern = ".csv", full.names = TRUE)
+files
+
+## Inspect one before building anything
+glimpse(read_csv(files[1]))
+```
+
+
+- After first inspection:
+  - `Intensity.lux` records values above 1000 with a comma ("1,003"), so the column reads as character
+  - `as.numeric()` would turn every bright reading into NA
+  - As such we need use `col_number()`, which strips grouping marks at read time
+
+### Method 1: for loop
+
+1.  Pre-allocate an empty tibble with one row per file
+2.  Loop over `seq_along(files)`, reading each file
+3.  Assign each result into row \[i\]
+
+```{r}
+#| label: for-loop
+#| message: false
+
+# Pre-allocate: one row per file, one column per value to compute
+# Growing a data frame inside a loop re-copies the whole thing every
+# Iteration, so it gets slower (allocating first avoids)
+
+loop_summary <- tibble(
+  PoolID     = rep(NA, length(files)),
+  treatment  = rep(NA, length(files)),
+  mean_temp  = rep(NA, length(files)),
+  sd_temp    = rep(NA, length(files)),
+  mean_light = rep(NA, length(files)),
+  sd_light   = rep(NA, length(files))
+)
+
+# seq_along(files) rather than 1:length(files). 
+# If files were empty, 1:length(files) is 1:0, so the loop would run twice on nothing
+# seq_along() returns an empty sequence and the loop correctly does nothing.
+
+for (i in seq_along(files)) {
+
+  raw_data <- read_csv(
+    files[i],
+    col_types = cols(Intensity.lux = col_number()),  # the comma fix
+    show_col_types = FALSE
+  )
+
+# PoolID comes from the data rather than the filename
+  
+  loop_summary$PoolID[i]     <- raw_data$PoolID[1]
+  loop_summary$treatment[i]  <- raw_data$Removal_Control[1]
+
+# na.rm = TRUE throughout: Temp.C has blank cells
+# (10 in TP1, 25 in TP4)
+# A single NA without this makes the whole mean NA
+  
+  loop_summary$mean_temp[i]  <- mean(raw_data$Temp.C, na.rm = TRUE)
+  loop_summary$sd_temp[i]    <- sd(raw_data$Temp.C, na.rm = TRUE)
+  loop_summary$mean_light[i] <- mean(raw_data$Intensity.lux, na.rm = TRUE)
+  loop_summary$sd_light[i]   <- sd(raw_data$Intensity.lux, na.rm = TRUE)
+}
+
+loop_summary
+```
+
+### Method 2: purrr `map()`
+
+1.  `set_names()` so each file path labels its list element
+2.  `map(read_csv)` to make a list of four tibbles
+3.  `list_rbind()` fills data frame, then `group_by()` + `summarise()`
+
+```{r}
+#| label: purrr-map
+#| message: false
+
+map_summary <- files |>
+# set_names() labels each list element with its file path
+# list_rbind() makes labels into a column 
+  
+  set_names() |>
+
+# map() applies read_csv() to each path and returns a list of 4 tibbles
+# The function is wrapped so col_types can be passed
+  map(\(f) read_csv(f,
+                    col_types = cols(Intensity.lux = col_number()),
+                    show_col_types = FALSE)) |>
+
+# list_rbind() stacks the list into one data frame names_to records which file each row came from 
+# (map_dfr() does the same but is superseded.)
+  
+  list_rbind(names_to = "filepath") |>
+
+# Grouping on PoolID rather than filepath
+# Foundation_spp and Removal_Control are constant
+# group_by() simply carries them into the output
+  
+  group_by(PoolID, Foundation_spp, Removal_Control) |>
+  summarise(
+    mean_temp  = mean(Temp.C, na.rm = TRUE),
+    sd_temp    = sd(Temp.C, na.rm = TRUE),
+    mean_light = mean(Intensity.lux, na.rm = TRUE),
+    sd_light   = sd(Intensity.lux, na.rm = TRUE),
+    .groups    = "drop"
+  )
+
+map_summary
+```
+
+### Method 3: `read_csv()` with a vector of paths
+
+```{r}
+#| label: read-csv-vector
+#| message: false
+
+# Since readr 2.0, read_csv() accepts a vector of file paths and stacks them
+tidepool_summary <- read_csv(
+    files,
+    id = "filepath",
+    col_types = cols(Intensity.lux = col_number())
+  ) |>
+# col_number() strips grouping marks, so "1,003" parses as 1003 instead of becoming NA
+# Avoids dropping every reading >= 1000 
+  
+  group_by(PoolID, Foundation_spp, Removal_Control) |>
+
+  summarise(
+    mean_temp  = mean(Temp.C, na.rm = TRUE),
+    sd_temp    = sd(Temp.C, na.rm = TRUE),
+    mean_light = mean(Intensity.lux, na.rm = TRUE),
+    sd_light   = sd(Intensity.lux, na.rm = TRUE),
+    n_temp     = sum(!is.na(Temp.C)),      
+# how many readings each mean rests on
+    n_light    = sum(!is.na(Intensity.lux)),
+    .groups    = "drop"
+  )
+
+tidepool_summary
+```
+
+## Do all methods agree?
+
+```{r}
+#| label: verify
+
+## If any method handled the comma separators differently, the light means would diverge by an order of magnitude
+
+all.equal(loop_summary |> 
+            select(mean_temp, sd_temp, mean_light, sd_light) |>
+    mutate(across(everything(), as.numeric)) |> arrange(mean_temp),
+    map_summary |> 
+      ungroup() |>
+      select(mean_temp, sd_temp, mean_light, sd_light) |>
+      arrange(mean_temp),
+    check.attributes = FALSE
+)
+```
+
+```{r}
+#| label: tbl-tidepool
+#| tbl-cap: "Mean and standard deviation of temperature and light in four Oregon tide pools, June–August 2019."
+
+tidepool_summary |>
+  select(
+    "Pool"          = PoolID,
+    "Treatment"     = Removal_Control,
+    "Mean temp (°C)" = mean_temp,
+    "SD temp"       = sd_temp,
+    "Mean light (lux)" = mean_light,
+    "SD light"      = sd_light
+  ) |>
+  kable() |>
+  kable_minimal("hover") |>
+  column_spec(3, background = wes_palette("GrandBudapest1")[1]) |>
+  column_spec(5, background = wes_palette("GrandBudapest1")[4])
+
+```
+
+@tbl-tidepool summarizes how temperature is near-identical across pools (13.1–13.3 °C, SD ≈ 2.3), while light differs roughly tenfold between treatments.
+
+Removing the canopy changed the light environment and left the thermal environment largely unchanged.

@@ -1,0 +1,309 @@
+---
+title: "Week 13 Practice, Iterative Coding"
+author: "Fabiola Gonzalez Zamora"
+format: html
+---
+
+## For Loops
+
+- `for` loops are one way to run an iterative process
+- Handy for population modeling and Bayesian modeling
+
+```{r}
+library(tidyverse)
+library(here)
+library(ggplot2)
+library(dplyr)
+library(here)
+library(peRReo)
+```
+
+### Structuring Loops
+
+- Two major parts:
+
+1.  Indexing statement
+2.  Command (or set of commands) to repeat
+
+```{r}
+#| eval: FALSE
+
+for (index in sequence) {
+  command to repeat
+}
+```
+
+### Example 1: Years Data
+
+```{r Simple for Loop}
+# Ask R to print a statement telling us what year it is along a sequence
+
+print(paste("The year is", 2000))
+
+# Loop
+
+years <- c(2015:2021)
+ 
+for (i in years) { # i in the index
+  print(paste("The year is", i)) # Loop over i
+}
+```
+
+- In order to save a new vector will all the years, we need to pre-allocate space
+- Create empty dataframe `year_data` with columns for `year` and `year_name`
+- Why? Speed.
+  - Both functions return the same vector
+  - Elapsed time grows since as n gets bigger, because each step copies more data
+
+```{r}
+# Pre-allocate space: empty columns as long as the years vector
+year_data <- tibble(year = rep(NA, length(years)),
+                    year_name = rep(NA, length(years)))
+
+year_data
+```
+
+- First add the column that will hold all the names.
+  - Notice the index `i` in the column name.
+- The index goes along `seq_along(years)`, which is 1:7 here.
+  - Using `seq_along()` lets you change the number of years without changing the loop.
+- You will often see `1:length(x)`
+  - If x is empty, `1:length(x)` is 1:0, so the loop runs twice (on 1, then 0)
+  - `seq_along()` returns an empty sequence and the loop correctly does nothing
+
+```{r}
+for (i in seq_along(years)) {
+  year_data$year_name[i] <- paste("The year is", years[i])
+  year_data$year[i] <- years[i]
+}
+
+year_data
+```
+
+### Using loops to read in multiple files
+
+- In the data folder you will see a subfolder called `cond_data`
+  - It has 3 files of salinity and temperature data collected from Mo’orea during a spatial survey
+
+### Example 2: Using for loop to read in data calculate means
+
+```{r}
+## Point to the folder on the computer
+CondPath <- here("Week_13", "Data", "cond_data")
+
+# List all files in that path matching a pattern (here, anything with .csv)
+# You can use regex to be more specific about filenames
+files <- dir(path = CondPath, pattern = ".csv")
+
+files
+
+## Pre-Allocate Space
+# Calculate mean tempurature and salinity from each file and save
+# One row for each file and 3 columns
+cond_data <- tibble(filename = rep(NA, length(files)),
+                    mean_temp = rep(NA, length(files)),
+                    mean_sal = rep(NA, length(files)))
+
+cond_data
+
+# Test by reading in the first file
+raw_data <- read_csv(paste0(CondPath, "/", files[1]))
+head(raw_data)
+
+mean_temp <- mean(raw_data$Temperature, na.rm = TRUE)
+mean_temp
+
+mean_sal <- mean(raw_data$Salinity, na.rm = TRUE)
+mean_temp
+```
+
+```{r}
+for (i in seq_along(files)) {
+  
+  raw_data <- read_csv(paste0(CondPath, "/", files[i]))
+  
+  cond_data$filename[i] <- files[i] 
+  # Adds filename for each row
+  cond_data$mean_temp[i] <- mean(raw_data$Temperature, na.rm = TRUE)
+  # Add mean temp
+  cond_data$mean_sal[i] <- mean(raw_data$Salinity, na.rm = TRUE)
+
+}
+
+cond_data
+```
+
+## Purrr
+
+- [purrr cheatsheat](https://github.com/rstudio/cheatsheets/blob/main/purrr.pdf)
+- Same thing, `tidyverse` style language
+
+*“purrr enhances R’s functional programming (FP) toolkit by providing a complete and consistent set of tools for working with functions and vectors. If you’ve never heard of FP before, the best place to start is the family of map() functions which allow you to replace many for loops with code that is both more succinct and easier to read. The best place to learn about the map() functions is the [iteration chapter](https://r4ds.hadley.nz/iteration.html) in R for data science.”* *“…it’s designed to make your pure functions purrr.”* - Hadley Wickham
+
+## Map Functions
+
+- Pattern of looping over a vector, doing something to each element and saving the results is so common that `purrr` provides a family of functions to do it for you
+  - `map()` makes a list
+  - `map_lgl()` makes logical vector
+  - `map_int()` makes a integer vector
+  - `map_dbl()` makes a double vector
+  - `map_chr()` makes a character vector
+  - `map()` + `list_rbind()` makes a dataframe
+- Each function takes a vector as input, applies a function to each pieces, returns a new vector that is the same length as input
+
+### Example 1: Mean of Random Numbers, 10 Times
+
+Random numbers differ everytime you run the code. `set.seed(3817)` makes it so everyone gets the same number
+
+```{r}
+set.seed(3817) # makes the random numbers reproducible
+1:10 |> # the vector to iterate over
+  map(rnorm, n = 15) |> # 15 random numbers from a normal distribution, in a list
+  map_dbl(mean) # result is now a vector type "double"
+```
+
+#### Option 2: Make Function
+
+```{r}
+set.seed(3817)
+1:10 |>
+  map(function(x) rnorm(15, x)) |> # make own function
+  map_dbl(mean)
+```
+
+#### Option 3: Use a Formula
+
+- Use when you want to change the arguments within the function
+
+```{r}
+set.seed(3817)
+1:10 |>
+  map(~ rnorm(15, .x)) |> # changes the arguments inside function
+  map_dbl(mean)
+```
+
+Because we used the same seed, all three notations give identical results.
+
+### Using purrr to read in multiple files
+
+- Read in the files using `map()` instead of a fo loop, then stack the list of data frames into one with `list_rbind()`, keeping the filename as a column
+
+  - Might see `map()` in older code, still works but superseded as of `purrr` 1.0
+  - Use `map()` + `list_rbind()`
+
+  ```{r}
+  # CondPath <- here("Week_13", "Data", "cond_data")
+  # files <- dir(path = CondPath, pattern = ".csv")
+
+  # files
+
+  ## Faster Method
+  files <- dir(path = CondPath, pattern = ".csv", full.names = TRUE) # saves the entire path
+  files
+
+  data <- files |>
+    set_names() |> # names each list element with file name
+    map(read_csv) |> # list of three dataframes
+    list_rbind(names_to = "filename") # stack em
+
+  data
+  ```
+
+- Calculate means:
+
+  - Now we have a dataframe and can calculate means
+  - `group_by()` filename and `summarise()`
+
+```{r}
+data <- files |>
+  set_names() |>
+  map(read_csv) |>
+  list_rbind(names_to = "filename") |>
+  group_by(filename) |>
+  summarise(mean_temp = mean(Temperature, na.rm = TRUE),
+            mean_sal = mean(Salinity, na.rm = TRUE))
+
+data
+```
+
+### Shortcut: readr can read many files at once
+
+- For specific task reading files, no need loop or `map()`
+- `readr` 2.0, `read_csv()` accepts a vector of file paths and stacks them for you
+  - The `id` argument adds column with the file path
+  - `read_csv(files)` expects every file to have the same column names and types
+  - If they differ, or need cleaning, use for loop or `map()`
+
+```{r}
+data <- read_csv(files, id = "filename") |>
+  
+  group_by(filename) |>
+  
+  summarise(mean_temp = mean(Temperature, na.rm = TRUE),
+            mean_sal = mean(Salinity, na.rm = TRUE))
+data
+```
+
+## Other uses: a plot for every file (purrr)
+
+- When you want a function's side effect (saving a file, printing) rather than a returned value, use `walk()` instead of `map()`
+  - Run \`save_temp_plot(file_names\[1\]) first
+  - Once it works for one file, `walk()` applies to all
+
+```{r Plot Every File using Purrr}
+file_names <- dir(path = CondPath, pattern = ".csv") # just the file names
+
+save_temp_plot <- function(file_names) {
+  site_name <- str_remove(file_names, "\\.csv")
+
+  p <- read_csv(paste0(CondPath, "/", file_names)) |>
+    ggplot(aes(x = date, y = Temperature)) +
+    geom_line() +
+    labs(title = site_name, x = "Date", y = "Temperature (°C)")
+
+  ggsave(here("Week_13", "Output", paste0(site_name, "_temp.png")),
+         plot = p, width = 6, height = 4)
+}
+
+# save_temp_plot(file_names[1]) # test with one
+walk(file_names, save_temp_plot)
+```
+
+```{r Plot Every File using For Loop}
+file_names <- dir(path = CondPath, pattern = ".csv")
+
+for (i in seq_along(file_names)) {
+  
+  raw_data <- read_csv(paste0(CondPath, "/", file_names[i]))
+  
+  site_name <- str_remove(file_names[i], "\\.csv") # drop .csv
+  
+  p <- ggplot(raw_data, aes(x = date, 
+                            y = Temperature)) +              geom_line() +
+    labs(title = site_name,
+         x = "Date",
+         y = "Temperature (Cº)")
+  
+  ggsave(here("Week_13", "Output", paste0(site_name, "_temp.png")),
+         plot = p, width = 6, height = 4)
+}
+```
+
+## Learn More
+
+- Read these chapters in [R4DS](https://r4ds.hadley.nz/iteration.html) and [Advanced R](https://adv-r.hadley.nz/functionals.html) to see all fancy shortcuts you can do with purrr package
+
+## `gganatogram`
+
+```{r}
+# Gets rid of a weird warning-converted-to-error during install
+Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS = "true")
+remotes::install_github("jespermaag/gganatogram")
+
+library(gganatogram)
+gganatogram(data = hgFemale_key,
+            organism = "human", sex = "female",
+            fill = "colour", fillOutline = "#a6bddb") +
+  theme_void() +
+  coord_fixed()
+```
