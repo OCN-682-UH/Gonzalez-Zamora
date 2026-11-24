@@ -11,7 +11,7 @@ Hola, everyone! I'm Fabi, a graduate student in Microbiology under Dr. Anthony A
 3\. I think ketchup is *incredibly* overrated
 
 ## Week 13
-- Homework URL: OCN 682 - Fabiola Gonzalez Zamora - Week 13](https://01a20f6d-6256-2343-08ca-aad5520c5d0c.share.connect.posit.cloud)
+- Homework URL: [OCN 682 - Fabiola Gonzalez Zamora - Week 13](https://01a20f6d-6256-2343-08ca-aad5520c5d0c.share.connect.posit.cloud)
 - `FZ_Week13_HW`: HW Quarto Scripts
 - `FZ_Week13_HW.html`: HW HTML
 - `FZ_Week13_Pt1.qmd`: iterative coding practice scripts
